@@ -114,23 +114,6 @@ yajl_free(yajl_handle handle)
     YA_FREE(&(handle->alloc), handle);
 }
 
-yajl_status
-yajl_parse(yajl_handle hand, const unsigned char * jsonText,
-           size_t jsonTextLen)
-{
-    yajl_status status;
-
-    /* lazy allocation of the lexer */
-    if (hand->lexer == NULL) {
-        hand->lexer = yajl_lex_alloc(&(hand->alloc),
-                                     hand->flags & yajl_allow_comments,
-                                     !(hand->flags & yajl_dont_validate_strings));
-    }
-
-    status = yajl_do_parse(hand, jsonText, jsonTextLen);
-    return status;
-}
-
 
 yajl_status
 yajl_complete_parse(yajl_handle hand)

@@ -20,7 +20,7 @@
 use std::io;
 use std::io::Read;
 
-use yajl::yajl_tree;
+use yajl::yajl_tree_parse;
 
 // static unsigned char fileData[65536];
 
@@ -48,7 +48,7 @@ fn main() -> io::Result<()> {
 
     /* we have the whole config file in memory.  let's parse it ... */
     // node = yajl_tree_parse((const char *) fileData, errbuf, sizeof(errbuf));
-    let node = yajl_tree::parse(&fileData, &mut errbuf);
+    let node = yajl_tree_parse(&fileData, &mut errbuf);
 
     /* parse error handling */
     // if (node == NULL) {

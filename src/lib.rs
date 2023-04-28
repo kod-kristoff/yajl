@@ -1,3 +1,8 @@
+mod api;
+pub mod yajl_parser;
+
+pub use api::{yajl_parse, yajl_tree_parse};
+
 pub fn add(left: usize, right: usize) -> usize {
     left + right
 }
