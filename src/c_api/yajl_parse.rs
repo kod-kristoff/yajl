@@ -1,3 +1,7 @@
+#![allow(non_camel_case_types)]
+#![allow(unused)]
+#![allow(dead_code)]
+#![allow(non_snake_case)]
 /*
  * Copyright (c) 2007-2014, Lloyd Hilaiel <me@lloyd.io>
  *
@@ -45,8 +49,11 @@ pub extern "C" fn yajl_status_to_string(code: yajl_status) -> *const c_char {
 /** an opaque handle to a parser */
 #[repr(C)]
 pub struct yajl_handle {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+    callbacks: *const yajl_callbacks,
+    // alloc: *mut yajl_alloc_funcs,
+    ctx: *mut c_void,
+    // _data: [u8; 0],
+    // _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 // typedef struct yajl_handle_t * yajl_handle;
 
@@ -116,7 +123,9 @@ pub extern "C" fn yajl_alloc(
     afs: *mut c_void,
     ctx: *mut c_void,
 ) -> *mut yajl_handle {
-    todo!()
+    let hand = yajl_handle { callbacks, ctx };
+    let box_hand = Box::new(hand);
+    Box::into_raw(box_hand)
 }
 
 /** configuration parameters for the parser, these may be passed to
@@ -183,7 +192,9 @@ pub extern "C" fn yajl_config(h: *mut yajl_handle, opt: yajl_option) -> c_int {
 /** free a parser handle */
 #[no_mangle]
 pub extern "C" fn yajl_free(handle: *mut yajl_handle) {
-    todo!()
+    unsafe {
+        drop(Box::from_raw(handle));
+    }
 }
 
 /** Parse some json!
@@ -197,7 +208,7 @@ pub extern "C" fn yajl_parse(
     jsonText: *const c_uchar,
     jsonTextLength: usize,
 ) -> yajl_status {
-    todo!()
+    yajl_status::yajl_status_ok
 }
 
 /** Parse any remaining buffered json.
@@ -211,7 +222,7 @@ pub extern "C" fn yajl_parse(
  */
 #[no_mangle]
 pub extern "C" fn yajl_complete_parse(hand: *mut yajl_handle) -> yajl_status {
-    todo!()
+    yajl_status::yajl_status_ok
 }
 
 /** get an error string describing the state of the
