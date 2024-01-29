@@ -7,3 +7,6 @@ Makefile
 
 /target
 /Cargo.lock
+*.o
+test/*/cases/*.test
+test/*/cases/*.out

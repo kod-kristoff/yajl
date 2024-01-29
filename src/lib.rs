@@ -5,8 +5,8 @@
 #![allow(non_upper_case_globals)]
 #![allow(unused_assignments)]
 #![allow(unused_mut)]
-#![feature(c_variadic)]
-#![feature(extern_types)]
+#![cfg_attr(feature = "nightly", feature(c_variadic))]
+#![cfg_attr(feature = "nightly", feature(extern_types))]
 
 extern crate libc;
 pub mod yajl;
