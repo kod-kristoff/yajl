@@ -20,7 +20,7 @@ if [ -z "$testBin" ]; then
     if [ ! -x $testBin ] ; then
         testBin="../build/test/parsing/Debug/yajl_test.exe"
         if [ ! -x $testBin ] ; then
-            testBin="./yajl_test"
+            testBin="../../build/test/parsing/yajl_test"
             if [  ! -x $testBin ] ; then
                 ${ECHO} "cannot execute test binary: '$testBin'"
                 exit 1;
