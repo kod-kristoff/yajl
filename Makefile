@@ -8,8 +8,8 @@ parse_config: example/parse_config.o $(RLIB)
 json_verify: verify/json_verify.o $(RLIB)
 	$(CC) -Wall $(CFLAGS) -o $@ $^
 
-$(YAJL_TEST): test/parsing/yajl_test.c $(RLIB)
-	$(CC) -Wall $(CFLAGS) test/parsing/yajl_test.c -l:libyajl.so -Ltarget/debug -o $@
+$(YAJL_TEST): tests/parsing/yajl_test.c $(RLIB)
+	$(CC) -Wall $(CFLAGS) tests/parsing/yajl_test.c -l:libyajl.so -Ltarget/debug -o $@
 
 
 $(RLIB): clib/Cargo.toml clib/src/*.rs
@@ -23,4 +23,4 @@ run-json-verify: json_verify
 
 test-parsing: $(YAJL_TEST)
 	# cd test/parsing && ./run_tests.sh
-	cd test/parsing && LD_LIBRARY_PATH=../../target/debug ./run_tests.sh
+	cd tests/parsing && LD_LIBRARY_PATH=../../target/debug ./run_tests.sh
