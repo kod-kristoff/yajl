@@ -36,7 +36,7 @@ testBinShort=`basename $testBin`
 testsSucceeded=0
 testsTotal=0
 
-for file in cases/*.json ; do
+for file in ../../assets/cases/*.json ; do
   allowComments=""
   allowGarbage=""
   allowMultiple=""
