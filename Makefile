@@ -16,10 +16,10 @@ $(RLIB): clib/Cargo.toml clib/src/*.rs
 	cargo build
  
 run-parse-config: parse_config
-	LD_LIBRARY_PATH=target/debug ./parse_config < example/sample.config
+	LD_LIBRARY_PATH=target/debug ./parse_config < examples/sample.config
 
 run-json-verify: json_verify
-	LD_LIBRARY_PATH=target/debug ./json_verify < example/sample.config
+	LD_LIBRARY_PATH=target/debug ./json_verify < examples/sample.config
 
 test-parsing: $(YAJL_TEST)
 	# cd test/parsing && ./run_tests.sh
