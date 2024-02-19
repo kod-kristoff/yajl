@@ -1,6 +1,7 @@
 RLIB = target/debug/libyajl.so
 CFLAGS = -Ibuild/yajl-2.1.1/include
 YAJL_TEST = build/test/parsing/yajl_test
+YAJL_TEST_RS = target/debug/examples/yajl_test
 
 parse_config: example/parse_config.o $(RLIB)
 	$(CC) -Wall $(CFLAGS) -o $@ $^
@@ -11,6 +12,8 @@ json_verify: verify/json_verify.o $(RLIB)
 $(YAJL_TEST): tests/parsing/yajl_test.c $(RLIB)
 	$(CC) -Wall $(CFLAGS) tests/parsing/yajl_test.c -l:libyajl.so -Ltarget/debug -o $@
 
+$(YAJL_TEST_RS): examples/yajl_test.rs
+	cargo build --example yajl_test
 
 $(RLIB): clib/Cargo.toml clib/src/*.rs
 	cargo build
@@ -24,3 +27,6 @@ run-json-verify: json_verify
 test-parsing: $(YAJL_TEST)
 	# cd test/parsing && ./run_tests.sh
 	cd tests/parsing && LD_LIBRARY_PATH=../../target/debug ./run_tests.sh
+
+test-parsing-rs: $(YAJL_TEST_RS)
+	cd tests/parsing && ./run_tests.sh "../../$(YAJL_TEST_RS)"
