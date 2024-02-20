@@ -1,6 +1,10 @@
 use ::libc;
 
-use crate::{yajl_buf::yajl_buf_t, yajl_lex::yajl_lexer_t};
+use crate::{
+    yajl_buf::yajl_buf_t,
+    yajl_lex::yajl_lexer_t,
+    yajl_option::{yajl_allow_comments, yajl_dont_validate_strings, yajl_option},
+};
 extern "C" {
     // pub type yajl_buf_t;
     // pub type yajl_lexer_t;
@@ -50,10 +54,7 @@ pub struct yajl_alloc_funcs {
     pub free: yajl_free_func,
     pub ctx: *mut libc::c_void,
 }
-pub type yajl_status = libc::c_uint;
-pub const yajl_status_error: yajl_status = 2;
-pub const yajl_status_client_canceled: yajl_status = 1;
-pub const yajl_status_ok: yajl_status = 0;
+
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct yajl_handle_t {
@@ -101,12 +102,7 @@ pub struct yajl_callbacks {
 }
 pub type yajl_handle = *mut yajl_handle_t;
 pub const yajl_state_start: C2RustUnnamed = 0;
-pub type yajl_option = libc::c_uint;
-pub const yajl_allow_partial_values: yajl_option = 16;
-pub const yajl_allow_multiple_values: yajl_option = 8;
-pub const yajl_allow_trailing_garbage: yajl_option = 4;
-pub const yajl_dont_validate_strings: yajl_option = 2;
-pub const yajl_allow_comments: yajl_option = 1;
+
 pub type va_list = __builtin_va_list;
 pub type C2RustUnnamed = libc::c_uint;
 pub const yajl_state_got_value: C2RustUnnamed = 12;
@@ -138,65 +134,7 @@ pub unsafe extern "C" fn yajl_status_to_string(mut stat: yajl_status) -> *const 
     }
     return statStr;
 }
-#[no_mangle]
-pub unsafe extern "C" fn yajl_alloc(
-    mut callbacks: *const yajl_callbacks,
-    mut afs: *mut yajl_alloc_funcs,
-    mut ctx: *mut libc::c_void,
-) -> yajl_handle {
-    let mut hand: yajl_handle = 0 as yajl_handle;
-    let mut afsBuffer: yajl_alloc_funcs = yajl_alloc_funcs {
-        malloc: None,
-        realloc: None,
-        free: None,
-        ctx: 0 as *mut libc::c_void,
-    };
-    if !afs.is_null() {
-        if ((*afs).malloc).is_none() || ((*afs).realloc).is_none() || ((*afs).free).is_none() {
-            return 0 as yajl_handle;
-        }
-    } else {
-        yajl_set_default_alloc_funcs(&mut afsBuffer);
-        afs = &mut afsBuffer;
-    }
-    hand = ((*afs).malloc).expect("non-null function pointer")(
-        (*afs).ctx,
-        ::core::mem::size_of::<yajl_handle_t>() as libc::c_ulong,
-    ) as yajl_handle;
-    memcpy(
-        &mut (*hand).alloc as *mut yajl_alloc_funcs as *mut libc::c_void,
-        afs as *mut libc::c_void,
-        ::core::mem::size_of::<yajl_alloc_funcs>() as libc::c_ulong,
-    );
-    (*hand).callbacks = callbacks;
-    (*hand).ctx = ctx;
-    (*hand).lexer = 0 as yajl_lexer;
-    (*hand).bytesConsumed = 0 as libc::c_int as size_t;
-    (*hand).decodeBuf = yajl_buf_alloc(&mut (*hand).alloc);
-    (*hand).flags = 0 as libc::c_int as libc::c_uint;
-    (*hand).stateStack.stack = 0 as *mut libc::c_uchar;
-    (*hand).stateStack.size = 0 as libc::c_int as size_t;
-    (*hand).stateStack.used = 0 as libc::c_int as size_t;
-    (*hand).stateStack.yaf = &mut (*hand).alloc;
-    if ((*hand).stateStack.size).wrapping_sub((*hand).stateStack.used)
-        == 0 as libc::c_int as libc::c_ulong
-    {
-        (*hand).stateStack.size = ((*hand).stateStack.size as libc::c_ulong)
-            .wrapping_add(128 as libc::c_int as libc::c_ulong)
-            as size_t as size_t;
-        (*hand).stateStack.stack = ((*(*hand).stateStack.yaf).realloc)
-            .expect("non-null function pointer")(
-            (*(*hand).stateStack.yaf).ctx,
-            (*hand).stateStack.stack as *mut libc::c_void,
-            (*hand).stateStack.size,
-        ) as *mut libc::c_uchar;
-    }
-    let fresh0 = (*hand).stateStack.used;
-    (*hand).stateStack.used = ((*hand).stateStack.used).wrapping_add(1);
-    *((*hand).stateStack.stack).offset(fresh0 as isize) =
-        yajl_state_start as libc::c_int as libc::c_uchar;
-    return hand;
-}
+
 #[cfg(feature = "nightly")]
 #[no_mangle]
 pub unsafe extern "C" fn yajl_config(
@@ -245,24 +183,7 @@ pub unsafe extern "C" fn yajl_config(
     }
     return rv;
 }
-#[no_mangle]
-pub unsafe extern "C" fn yajl_free(mut handle: yajl_handle) {
-    if !((*handle).stateStack.stack).is_null() {
-        ((*(*handle).stateStack.yaf).free).expect("non-null function pointer")(
-            (*(*handle).stateStack.yaf).ctx,
-            (*handle).stateStack.stack as *mut libc::c_void,
-        );
-    }
-    yajl_buf_free((*handle).decodeBuf);
-    if !((*handle).lexer).is_null() {
-        yajl_lex_free((*handle).lexer);
-        (*handle).lexer = 0 as yajl_lexer;
-    }
-    ((*handle).alloc.free).expect("non-null function pointer")(
-        (*handle).alloc.ctx,
-        handle as *mut libc::c_void,
-    );
-}
+
 #[no_mangle]
 pub unsafe extern "C" fn yajl_parse(
     mut hand: yajl_handle,

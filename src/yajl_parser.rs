@@ -1,6 +1,11 @@
 use ::libc;
 
-use crate::{yajl_buf::yajl_buf_t, yajl_lex::yajl_lexer_t};
+use crate::{
+    yajl_alloc::{yajl_alloc_funcs, yajl_set_default_alloc_funcs},
+    yajl_buf::{yajl_buf_alloc, yajl_buf_free, yajl_buf_t},
+    yajl_lex::{yajl_lex_free, yajl_lexer_t},
+    yajl_option::yajl_option,
+};
 extern "C" {
     // pub type yajl_buf_t;
     // pub type yajl_lexer_t;
@@ -25,21 +30,10 @@ extern "C" {
     fn __errno_location() -> *mut libc::c_int;
     fn strcat(_: *mut libc::c_char, _: *const libc::c_char) -> *mut libc::c_char;
     fn strlen(_: *const libc::c_char) -> libc::c_ulong;
+    fn memcpy(_: *mut libc::c_void, _: *const libc::c_void, _: libc::c_ulong) -> *mut libc::c_void;
 }
 pub type size_t = libc::c_ulong;
-pub type yajl_malloc_func =
-    Option<unsafe extern "C" fn(*mut libc::c_void, size_t) -> *mut libc::c_void>;
-pub type yajl_free_func = Option<unsafe extern "C" fn(*mut libc::c_void, *mut libc::c_void) -> ()>;
-pub type yajl_realloc_func =
-    Option<unsafe extern "C" fn(*mut libc::c_void, *mut libc::c_void, size_t) -> *mut libc::c_void>;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct yajl_alloc_funcs {
-    pub malloc: yajl_malloc_func,
-    pub realloc: yajl_realloc_func,
-    pub free: yajl_free_func,
-    pub ctx: *mut libc::c_void,
-}
+
 pub type yajl_status = libc::c_uint;
 pub const yajl_status_error: yajl_status = 2;
 pub const yajl_status_client_canceled: yajl_status = 1;
@@ -56,6 +50,148 @@ pub struct yajl_handle_t {
     pub stateStack: yajl_bytestack,
     pub alloc: yajl_alloc_funcs,
     pub flags: libc::c_uint,
+}
+
+impl yajl_handle_t {
+    /// allocate a parser handle
+    ///
+    /// # Arguments
+    ///
+    /// * `callbacks` - a yajl callbacks structure specifying the
+    ///                    functions to call when different JSON entities
+    ///                    are encountered in the input text.  May be NULL,
+    ///                    which is only useful for validation.
+    /// * `afs` - memory allocation functions, may be NULL for to use
+    ///                    C runtime library routines (malloc and friends)
+    /// * `ctx` - a context pointer that will be passed to callbacks.
+    ///
+    /// # Safety
+    ///
+    /// The caller is responsible for free the handle by calling `yajl_handle_t::free`
+    pub unsafe fn alloc(
+        mut callbacks: *const yajl_callbacks,
+        mut afs: *mut yajl_alloc_funcs,
+        mut ctx: *mut libc::c_void,
+    ) -> *mut yajl_handle_t {
+        let mut hand: yajl_handle = 0 as yajl_handle;
+        let mut afsBuffer: yajl_alloc_funcs = yajl_alloc_funcs {
+            malloc: None,
+            realloc: None,
+            free: None,
+            ctx: 0 as *mut libc::c_void,
+        };
+        if !afs.is_null() {
+            if ((*afs).malloc).is_none() || ((*afs).realloc).is_none() || ((*afs).free).is_none() {
+                return 0 as yajl_handle;
+            }
+        } else {
+            yajl_set_default_alloc_funcs(&mut afsBuffer);
+            afs = &mut afsBuffer;
+        }
+        hand = ((*afs).malloc).expect("non-null function pointer")(
+            (*afs).ctx,
+            ::core::mem::size_of::<yajl_handle_t>() as libc::c_ulong,
+        ) as yajl_handle;
+        memcpy(
+            &mut (*hand).alloc as *mut yajl_alloc_funcs as *mut libc::c_void,
+            afs as *mut libc::c_void,
+            ::core::mem::size_of::<yajl_alloc_funcs>() as libc::c_ulong,
+        );
+        (*hand).callbacks = callbacks;
+        (*hand).ctx = ctx;
+        (*hand).lexer = 0 as yajl_lexer;
+        (*hand).bytesConsumed = 0 as libc::c_int as size_t;
+        (*hand).decodeBuf = yajl_buf_alloc(&mut (*hand).alloc);
+        (*hand).flags = 0 as libc::c_int as libc::c_uint;
+        (*hand).stateStack.stack = 0 as *mut libc::c_uchar;
+        (*hand).stateStack.size = 0 as libc::c_int as size_t;
+        (*hand).stateStack.used = 0 as libc::c_int as size_t;
+        (*hand).stateStack.yaf = &mut (*hand).alloc;
+        if ((*hand).stateStack.size).wrapping_sub((*hand).stateStack.used)
+            == 0 as libc::c_int as libc::c_ulong
+        {
+            (*hand).stateStack.size = ((*hand).stateStack.size as libc::c_ulong)
+                .wrapping_add(128 as libc::c_int as libc::c_ulong)
+                as size_t as size_t;
+            (*hand).stateStack.stack = ((*(*hand).stateStack.yaf).realloc)
+                .expect("non-null function pointer")(
+                (*(*hand).stateStack.yaf).ctx,
+                (*hand).stateStack.stack as *mut libc::c_void,
+                (*hand).stateStack.size,
+            ) as *mut libc::c_uchar;
+        }
+        let fresh0 = (*hand).stateStack.used;
+        (*hand).stateStack.used = ((*hand).stateStack.used).wrapping_add(1);
+        *((*hand).stateStack.stack).offset(fresh0 as isize) =
+            yajl_state_start as libc::c_int as libc::c_uchar;
+        return hand;
+    }
+
+    pub unsafe fn free(mut handle: yajl_handle) {
+        if !((*handle).stateStack.stack).is_null() {
+            ((*(*handle).stateStack.yaf).free).expect("non-null function pointer")(
+                (*(*handle).stateStack.yaf).ctx,
+                (*handle).stateStack.stack as *mut libc::c_void,
+            );
+        }
+        yajl_buf_free((*handle).decodeBuf);
+        if !((*handle).lexer).is_null() {
+            yajl_lex_free((*handle).lexer);
+            (*handle).lexer = 0 as yajl_lexer;
+        }
+        ((*handle).alloc.free).expect("non-null function pointer")(
+            (*handle).alloc.ctx,
+            handle as *mut libc::c_void,
+        );
+    }
+
+    #[cfg(feature = "nightly")]
+    #[no_mangle]
+    pub unsafe extern "C" fn config(
+        mut h: yajl_handle,
+        mut opt: yajl_option,
+        mut args: ...
+    ) -> libc::c_int {
+        let mut rv: libc::c_int = 1 as libc::c_int;
+        let mut ap: ::core::ffi::VaListImpl;
+        ap = args.clone();
+        match opt as libc::c_uint {
+            1 | 2 | 4 | 8 | 16 => {
+                if ap.arg::<libc::c_int>() != 0 {
+                    (*h).flags |= opt as libc::c_uint;
+                } else {
+                    (*h).flags &= !(opt as libc::c_uint);
+                }
+            }
+            _ => {
+                rv = 0 as libc::c_int;
+            }
+        }
+        return rv;
+    }
+    #[cfg(not(feature = "nightly"))]
+    #[no_mangle]
+    pub extern "C" fn config(
+        &mut self,
+        // mut h: yajl_handle,
+        mut opt: yajl_option,
+        mut arg: libc::c_int,
+    ) -> libc::c_int {
+        let mut rv: libc::c_int = 1 as libc::c_int;
+        match opt as libc::c_uint {
+            1 | 2 | 4 | 8 | 16 => {
+                if arg != 0 {
+                    self.flags |= opt as libc::c_uint;
+                } else {
+                    self.flags &= !(opt as libc::c_uint);
+                }
+            }
+            _ => {
+                rv = 0 as libc::c_int;
+            }
+        }
+        return rv;
+    }
 }
 pub type yajl_bytestack = yajl_bytestack_t;
 #[derive(Copy, Clone)]

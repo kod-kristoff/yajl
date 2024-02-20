@@ -55,46 +55,17 @@ extern "C" {
     fn strlen(_: *const libc::c_char) -> libc::c_ulong;
 }
 pub type size_t = libc::c_ulong;
-pub type yajl_malloc_func =
-    Option<unsafe extern "C" fn(*mut libc::c_void, size_t) -> *mut libc::c_void>;
-pub type yajl_free_func = Option<unsafe extern "C" fn(*mut libc::c_void, *mut libc::c_void) -> ()>;
-pub type yajl_realloc_func =
-    Option<unsafe extern "C" fn(*mut libc::c_void, *mut libc::c_void, size_t) -> *mut libc::c_void>;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct yajl_alloc_funcs {
-    pub malloc: yajl_malloc_func,
-    pub realloc: yajl_realloc_func,
-    pub free: yajl_free_func,
-    pub ctx: *mut libc::c_void,
-}
+
 pub type yajl_status = libc::c_uint;
 pub const yajl_status_error: yajl_status = 2;
 pub const yajl_status_client_canceled: yajl_status = 1;
 pub const yajl_status_ok: yajl_status = 0;
-use yajl::yajl_parser::yajl_handle_t;
+use yajl::{
+    yajl_alloc::yajl_alloc_funcs,
+    yajl_parser::{yajl_callbacks, yajl_handle_t},
+};
 pub type yajl_handle = *mut yajl_handle_t;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct yajl_callbacks {
-    pub yajl_null: Option<unsafe extern "C" fn(*mut libc::c_void) -> libc::c_int>,
-    pub yajl_boolean: Option<unsafe extern "C" fn(*mut libc::c_void, libc::c_int) -> libc::c_int>,
-    pub yajl_integer:
-        Option<unsafe extern "C" fn(*mut libc::c_void, libc::c_longlong) -> libc::c_int>,
-    pub yajl_double: Option<unsafe extern "C" fn(*mut libc::c_void, libc::c_double) -> libc::c_int>,
-    pub yajl_number:
-        Option<unsafe extern "C" fn(*mut libc::c_void, *const libc::c_char, size_t) -> libc::c_int>,
-    pub yajl_string: Option<
-        unsafe extern "C" fn(*mut libc::c_void, *const libc::c_uchar, size_t) -> libc::c_int,
-    >,
-    pub yajl_start_map: Option<unsafe extern "C" fn(*mut libc::c_void) -> libc::c_int>,
-    pub yajl_map_key: Option<
-        unsafe extern "C" fn(*mut libc::c_void, *const libc::c_uchar, size_t) -> libc::c_int,
-    >,
-    pub yajl_end_map: Option<unsafe extern "C" fn(*mut libc::c_void) -> libc::c_int>,
-    pub yajl_start_array: Option<unsafe extern "C" fn(*mut libc::c_void) -> libc::c_int>,
-    pub yajl_end_array: Option<unsafe extern "C" fn(*mut libc::c_void) -> libc::c_int>,
-}
+
 pub type yajl_option = libc::c_uint;
 pub const yajl_allow_partial_values: yajl_option = 16;
 pub const yajl_allow_multiple_values: yajl_option = 8;
@@ -300,7 +271,7 @@ unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int
         ctx: std::ptr::null_mut::<libc::c_void>(),
     };
     allocFuncs.ctx = &mut memCtx as *mut yajlTestMemoryContext as *mut libc::c_void;
-    let hand = yajl_alloc(
+    let hand = yajl_handle_t::alloc(
         &callbacks,
         &mut allocFuncs,
         std::ptr::null_mut::<libc::c_void>(),
@@ -426,7 +397,7 @@ unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int
     }
     fflush(stderr);
     fflush(stdout);
-
+    println!("memory leaks:\t{}", memCtx.numMallocs - memCtx.numFrees);
     assert_eq!(memCtx.numMallocs, memCtx.numFrees, "memory leak detected");
     0 as libc::c_int
 }
