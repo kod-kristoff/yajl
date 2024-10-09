@@ -1,7 +1,7 @@
 [package]
 name = "yajl"
-version = "0.1.0"
-edition = "2021"
+version = { workspace = true }
+edition = { workspace = true }
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -15,9 +15,3 @@ libc = "0.2"
 
 [lib]
 doctest = false
-
-[workspace]
-resolver = "2"
-members = [
-  "clib",
-]

@@ -1,0 +1,10 @@
+[workspace]
+resolver = "2"
+members = ["crates/yajl", "crates/yajl-clib"]
+
+[workspace.package]
+edition = "2021"
+version = "0.1.0"
+
+[workspace.dependencies]
+yajl = { path = "crates/yajl" }
