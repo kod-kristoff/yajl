@@ -4,6 +4,7 @@ use crate::{
     yajl_buf::yajl_buf_t,
     yajl_lex::yajl_lexer_t,
     yajl_option::{yajl_allow_comments, yajl_dont_validate_strings, yajl_option},
+    yajl_status::{yajl_status, yajl_status_client_canceled, yajl_status_error, yajl_status_ok},
 };
 extern "C" {
     // pub type yajl_buf_t;
