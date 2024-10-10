@@ -1,8 +1,11 @@
 use yajl::{
     yajl_alloc::yajl_alloc_funcs,
-    yajl_option::yajl_option,
-    yajl_parser::{yajl_callbacks, yajl_handle_t},
-    yajl_status::yajl_status,
+    yajl_lex::yajl_lex_alloc,
+    yajl_option::{yajl_allow_comments, yajl_dont_validate_strings, yajl_option},
+    yajl_parser::{
+        yajl_callbacks, yajl_do_finish, yajl_do_parse, yajl_handle_t, yajl_render_error_string,
+    },
+    yajl_status::{yajl_status, yajl_status_ok},
 };
 
 type yajl_handle = *mut yajl::yajl_parser::yajl_handle_t;
@@ -98,8 +101,8 @@ pub unsafe extern "C" fn yajl_parse(
     let mut status: yajl_status = yajl_status_ok;
     if ((*hand).lexer).is_null() {
         (*hand).lexer = yajl_lex_alloc(
-            &mut (*hand).alloc,
-            (*hand).flags & yajl_allow_comments as libc::c_int as libc::c_uint,
+            &mut (*hand).alloc as *mut yajl_alloc_funcs,
+            (*hand).flags & yajl_allow_comments,
             ((*hand).flags & yajl_dont_validate_strings as libc::c_int as libc::c_uint == 0)
                 as libc::c_int as libc::c_uint,
         );
@@ -124,14 +127,14 @@ pub unsafe extern "C" fn yajl_get_error(
     mut hand: yajl_handle,
     mut verbose: libc::c_int,
     mut jsonText: *const libc::c_uchar,
-    mut jsonTextLen: size_t,
+    mut jsonTextLen: libc::size_t,
 ) -> *mut libc::c_uchar {
     return yajl_render_error_string(hand, jsonText, jsonTextLen, verbose);
 }
 #[no_mangle]
-pub unsafe extern "C" fn yajl_get_bytes_consumed(mut hand: yajl_handle) -> size_t {
+pub unsafe extern "C" fn yajl_get_bytes_consumed(mut hand: yajl_handle) -> libc::size_t {
     if hand.is_null() {
-        return 0 as libc::c_int as size_t;
+        return 0 as libc::c_int as libc::size_t;
     } else {
         return (*hand).bytesConsumed;
     };

@@ -15,7 +15,7 @@ $(YAJL_TEST): tests/parsing/yajl_test.c $(RLIB)
 $(YAJL_TEST_RS): examples/yajl_test.rs
 	cargo build --example yajl_test
 
-$(RLIB): clib/Cargo.toml clib/src/*.rs
+$(RLIB): crates/yajl-clib/Cargo.toml crates/yajl-clib/src/*.rs
 	cargo build
 
 run-parse-config: parse_config
