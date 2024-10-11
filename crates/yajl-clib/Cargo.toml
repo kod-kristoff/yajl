@@ -1,0 +1,21 @@
+[package]
+name = "yajl-clib"
+version = { workspace = true }
+edition = { workspace = true }
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+default = []
+
+nightly = []
+
+[dependencies]
+libc = "0.2"
+yajl = { workspace = true }
+
+[lib]
+name = "yajl"
+# path = "src/yajl.rs"
+crate-type = ["staticlib", "cdylib"]
+doctest = false

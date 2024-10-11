@@ -10,3 +10,5 @@
 *.o
 test/*/cases/*.test
 test/*/cases/*.out
+
+/bin

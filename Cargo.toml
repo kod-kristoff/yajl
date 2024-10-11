@@ -1,23 +1,10 @@
-[package]
-name = "yajl"
-version = "0.1.0"
-edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[features]
-default = []
-
-nightly = []
-
-[dependencies]
-libc = "0.2"
-
-[lib]
-doctest = false
-
 [workspace]
 resolver = "2"
-members = [
-  "clib",
-]
+members = ["crates/yajl", "crates/yajl-clib"]
+
+[workspace.package]
+edition = "2021"
+version = "0.1.0"
+
+[workspace.dependencies]
+yajl = { path = "crates/yajl" }

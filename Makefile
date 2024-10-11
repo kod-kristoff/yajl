@@ -3,10 +3,10 @@ CFLAGS = -Ibuild/yajl-2.1.1/include
 YAJL_TEST = build/test/parsing/yajl_test
 YAJL_TEST_RS = target/debug/examples/yajl_test
 
-parse_config: examples/parse_config.o $(RLIB)
+bin/parse_config: examples/parse_config.o $(RLIB)
 	$(CC) -Wall $(CFLAGS) -o $@ $^
 
-json_verify: verify/json_verify.o $(RLIB)
+bin/json_verify: verify/json_verify.o $(RLIB)
 	$(CC) -Wall $(CFLAGS) -o $@ $^
 
 $(YAJL_TEST): tests/parsing/yajl_test.c $(RLIB)
@@ -15,14 +15,14 @@ $(YAJL_TEST): tests/parsing/yajl_test.c $(RLIB)
 $(YAJL_TEST_RS): examples/yajl_test.rs
 	cargo build --example yajl_test
 
-$(RLIB): clib/Cargo.toml clib/src/*.rs
+$(RLIB): crates/yajl-clib/Cargo.toml crates/yajl-clib/src/*.rs
 	cargo build
 
-run-parse-config: parse_config
-	LD_LIBRARY_PATH=target/debug ./parse_config < examples/sample.config
+run-parse-config: bin/parse_config
+	LD_LIBRARY_PATH=target/debug bin/parse_config < examples/sample.config
 
-run-json-verify: json_verify
-	LD_LIBRARY_PATH=target/debug ./json_verify -c < examples/sample.config
+run-json-verify: bin/json_verify
+	LD_LIBRARY_PATH=target/debug bin/json_verify -c < examples/sample.config
 
 test-parsing: $(YAJL_TEST)
 	# cd test/parsing && ./run_tests.sh
@@ -30,3 +30,16 @@ test-parsing: $(YAJL_TEST)
 
 test-parsing-rs: $(YAJL_TEST_RS)
 	cd tests/parsing && ./run_tests.sh "../../$(YAJL_TEST_RS)"
+
+bin/perftest: perf/documents.o perf/perftest.o $(RLIB)
+	$(CC) -Wall $(CFLAGS) -o $@ $^
+
+run-perftest: bin/perftest
+	LD_LIBRARY_PATH=target/debug bin/perftest
+
+target/debug/perftest: examples/perftest/*.rs
+	cargo build
+
+.PHONY: run-perftest-rs
+run-perftest-rs: target/debug/perftest
+	target/debug/perftest
