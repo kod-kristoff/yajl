@@ -30,3 +30,16 @@ test-parsing: $(YAJL_TEST)
 
 test-parsing-rs: $(YAJL_TEST_RS)
 	cd tests/parsing && ./run_tests.sh "../../$(YAJL_TEST_RS)"
+
+bin/perftest: perf/documents.o perf/perftest.o $(RLIB)
+	$(CC) -Wall $(CFLAGS) -o $@ $^
+
+run-perftest: bin/perftest
+	LD_LIBRARY_PATH=target/debug bin/perftest
+
+target/debug/perftest: examples/perftest/*.rs
+	cargo build
+
+.PHONY: run-perftest-rs
+run-perftest-rs: target/debug/perftest
+	target/debug/perftest
