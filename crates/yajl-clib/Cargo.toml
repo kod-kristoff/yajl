@@ -11,7 +11,7 @@ default = []
 nightly = []
 
 [dependencies]
-libc = "0.2"
+libc = { workspace = true }
 yajl = { workspace = true }
 
 [lib]
