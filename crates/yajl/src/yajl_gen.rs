@@ -263,7 +263,10 @@ pub unsafe extern "C" fn yajl_gen_integer(
             );
         }
     }
-    if (*g).flags & yajl_gen_beautify as libc::c_int as libc::c_uint != 0 && (*g).state[(*g).depth as usize] as libc::c_uint != yajl_gen_map_val as libc::c_int as libc::c_uint {
+    if (*g).flags & yajl_gen_beautify as libc::c_int as libc::c_uint != 0
+        && (*g).state[(*g).depth as usize] as libc::c_uint
+            != yajl_gen_map_val as libc::c_int as libc::c_uint
+    {
         let mut _i: libc::c_uint = 0;
         _i = 0 as libc::c_int as libc::c_uint;
         while _i < (*g).depth {
@@ -380,7 +383,10 @@ pub unsafe extern "C" fn yajl_gen_double(
             );
         }
     }
-    if (*g).flags & yajl_gen_beautify as libc::c_int as libc::c_uint != 0 && (*g).state[(*g).depth as usize] as libc::c_uint != yajl_gen_map_val as libc::c_int as libc::c_uint {
+    if (*g).flags & yajl_gen_beautify as libc::c_int as libc::c_uint != 0
+        && (*g).state[(*g).depth as usize] as libc::c_uint
+            != yajl_gen_map_val as libc::c_int as libc::c_uint
+    {
         let mut _i: libc::c_uint = 0;
         _i = 0 as libc::c_int as libc::c_uint;
         while _i < (*g).depth {
@@ -491,7 +497,10 @@ pub unsafe extern "C" fn yajl_gen_number(
             );
         }
     }
-    if (*g).flags & yajl_gen_beautify as libc::c_int as libc::c_uint != 0 && (*g).state[(*g).depth as usize] as libc::c_uint != yajl_gen_map_val as libc::c_int as libc::c_uint {
+    if (*g).flags & yajl_gen_beautify as libc::c_int as libc::c_uint != 0
+        && (*g).state[(*g).depth as usize] as libc::c_uint
+            != yajl_gen_map_val as libc::c_int as libc::c_uint
+    {
         let mut _i: libc::c_uint = 0;
         _i = 0 as libc::c_int as libc::c_uint;
         while _i < (*g).depth {
@@ -537,7 +546,9 @@ pub unsafe extern "C" fn yajl_gen_string(
     mut str: *const libc::c_uchar,
     mut len: size_t,
 ) -> yajl_gen_status {
-    if (*g).flags & yajl_gen_validate_utf8 as libc::c_int as libc::c_uint != 0 && yajl_string_validate_utf8(str, len) == 0 {
+    if (*g).flags & yajl_gen_validate_utf8 as libc::c_int as libc::c_uint != 0
+        && yajl_string_validate_utf8(str, len) == 0
+    {
         return yajl_gen_invalid_string;
     }
     if (*g).state[(*g).depth as usize] as libc::c_uint
@@ -582,7 +593,10 @@ pub unsafe extern "C" fn yajl_gen_string(
             );
         }
     }
-    if (*g).flags & yajl_gen_beautify as libc::c_int as libc::c_uint != 0 && (*g).state[(*g).depth as usize] as libc::c_uint != yajl_gen_map_val as libc::c_int as libc::c_uint {
+    if (*g).flags & yajl_gen_beautify as libc::c_int as libc::c_uint != 0
+        && (*g).state[(*g).depth as usize] as libc::c_uint
+            != yajl_gen_map_val as libc::c_int as libc::c_uint
+    {
         let mut _i: libc::c_uint = 0;
         _i = 0 as libc::c_int as libc::c_uint;
         while _i < (*g).depth {
@@ -689,7 +703,10 @@ pub unsafe extern "C" fn yajl_gen_null(mut g: yajl_gen) -> yajl_gen_status {
             );
         }
     }
-    if (*g).flags & yajl_gen_beautify as libc::c_int as libc::c_uint != 0 && (*g).state[(*g).depth as usize] as libc::c_uint != yajl_gen_map_val as libc::c_int as libc::c_uint {
+    if (*g).flags & yajl_gen_beautify as libc::c_int as libc::c_uint != 0
+        && (*g).state[(*g).depth as usize] as libc::c_uint
+            != yajl_gen_map_val as libc::c_int as libc::c_uint
+    {
         let mut _i: libc::c_uint = 0;
         _i = 0 as libc::c_int as libc::c_uint;
         while _i < (*g).depth {
@@ -792,7 +809,10 @@ pub unsafe extern "C" fn yajl_gen_bool(
             );
         }
     }
-    if (*g).flags & yajl_gen_beautify as libc::c_int as libc::c_uint != 0 && (*g).state[(*g).depth as usize] as libc::c_uint != yajl_gen_map_val as libc::c_int as libc::c_uint {
+    if (*g).flags & yajl_gen_beautify as libc::c_int as libc::c_uint != 0
+        && (*g).state[(*g).depth as usize] as libc::c_uint
+            != yajl_gen_map_val as libc::c_int as libc::c_uint
+    {
         let mut _i: libc::c_uint = 0;
         _i = 0 as libc::c_int as libc::c_uint;
         while _i < (*g).depth {
@@ -887,7 +907,10 @@ pub unsafe extern "C" fn yajl_gen_map_open(mut g: yajl_gen) -> yajl_gen_status {
             );
         }
     }
-    if (*g).flags & yajl_gen_beautify as libc::c_int as libc::c_uint != 0 && (*g).state[(*g).depth as usize] as libc::c_uint != yajl_gen_map_val as libc::c_int as libc::c_uint {
+    if (*g).flags & yajl_gen_beautify as libc::c_int as libc::c_uint != 0
+        && (*g).state[(*g).depth as usize] as libc::c_uint
+            != yajl_gen_map_val as libc::c_int as libc::c_uint
+    {
         let mut _i: libc::c_uint = 0;
         _i = 0 as libc::c_int as libc::c_uint;
         while _i < (*g).depth {
@@ -965,7 +988,10 @@ pub unsafe extern "C" fn yajl_gen_map_close(mut g: yajl_gen) -> yajl_gen_status 
         }
         _ => {}
     }
-    if (*g).flags & yajl_gen_beautify as libc::c_int as libc::c_uint != 0 && (*g).state[(*g).depth as usize] as libc::c_uint != yajl_gen_map_val as libc::c_int as libc::c_uint {
+    if (*g).flags & yajl_gen_beautify as libc::c_int as libc::c_uint != 0
+        && (*g).state[(*g).depth as usize] as libc::c_uint
+            != yajl_gen_map_val as libc::c_int as libc::c_uint
+    {
         let mut _i: libc::c_uint = 0;
         _i = 0 as libc::c_int as libc::c_uint;
         while _i < (*g).depth {
@@ -1045,7 +1071,10 @@ pub unsafe extern "C" fn yajl_gen_array_open(mut g: yajl_gen) -> yajl_gen_status
             );
         }
     }
-    if (*g).flags & yajl_gen_beautify as libc::c_int as libc::c_uint != 0 && (*g).state[(*g).depth as usize] as libc::c_uint != yajl_gen_map_val as libc::c_int as libc::c_uint {
+    if (*g).flags & yajl_gen_beautify as libc::c_int as libc::c_uint != 0
+        && (*g).state[(*g).depth as usize] as libc::c_uint
+            != yajl_gen_map_val as libc::c_int as libc::c_uint
+    {
         let mut _i: libc::c_uint = 0;
         _i = 0 as libc::c_int as libc::c_uint;
         while _i < (*g).depth {
@@ -1123,7 +1152,10 @@ pub unsafe extern "C" fn yajl_gen_array_close(mut g: yajl_gen) -> yajl_gen_statu
         }
         _ => {}
     }
-    if (*g).flags & yajl_gen_beautify as libc::c_int as libc::c_uint != 0 && (*g).state[(*g).depth as usize] as libc::c_uint != yajl_gen_map_val as libc::c_int as libc::c_uint {
+    if (*g).flags & yajl_gen_beautify as libc::c_int as libc::c_uint != 0
+        && (*g).state[(*g).depth as usize] as libc::c_uint
+            != yajl_gen_map_val as libc::c_int as libc::c_uint
+    {
         let mut _i: libc::c_uint = 0;
         _i = 0 as libc::c_int as libc::c_uint;
         while _i < (*g).depth {

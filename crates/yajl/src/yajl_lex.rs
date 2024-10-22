@@ -580,8 +580,7 @@ unsafe extern "C" fn yajl_lex_string(
                                 {
                                     let fresh16 = (*lexer).bufOff;
                                     (*lexer).bufOff = ((*lexer).bufOff).wrapping_add(1);
-                                    *(yajl_buf_data((*lexer).buf)).add(fresh16)
-                                        as libc::c_int
+                                    *(yajl_buf_data((*lexer).buf)).add(fresh16) as libc::c_int
                                 } else {
                                     let fresh17 = *offset;
                                     *offset = (*offset).wrapping_add(1);
@@ -604,7 +603,8 @@ unsafe extern "C" fn yajl_lex_string(
                             }
                         }
                     } else {
-                        if charLookupTable[curChar as usize] as libc::c_int & 0x1 as libc::c_int != 0
+                        if charLookupTable[curChar as usize] as libc::c_int & 0x1 as libc::c_int
+                            != 0
                         {
                             continue;
                         }
@@ -1020,8 +1020,7 @@ pub unsafe extern "C" fn yajl_lex_lex(
                             {
                                 let fresh46 = (*lexer).bufOff;
                                 (*lexer).bufOff = ((*lexer).bufOff).wrapping_add(1);
-                                *(yajl_buf_data((*lexer).buf)).add(fresh46)
-                                    as libc::c_int
+                                *(yajl_buf_data((*lexer).buf)).add(fresh46) as libc::c_int
                             } else {
                                 let fresh47 = *offset;
                                 *offset = (*offset).wrapping_add(1);
@@ -1061,8 +1060,7 @@ pub unsafe extern "C" fn yajl_lex_lex(
                             {
                                 let fresh48 = (*lexer).bufOff;
                                 (*lexer).bufOff = ((*lexer).bufOff).wrapping_add(1);
-                                *(yajl_buf_data((*lexer).buf)).add(fresh48)
-                                    as libc::c_int
+                                *(yajl_buf_data((*lexer).buf)).add(fresh48) as libc::c_int
                             } else {
                                 let fresh49 = *offset;
                                 *offset = (*offset).wrapping_add(1);
@@ -1102,8 +1100,7 @@ pub unsafe extern "C" fn yajl_lex_lex(
                             {
                                 let fresh50 = (*lexer).bufOff;
                                 (*lexer).bufOff = ((*lexer).bufOff).wrapping_add(1);
-                                *(yajl_buf_data((*lexer).buf)).add(fresh50)
-                                    as libc::c_int
+                                *(yajl_buf_data((*lexer).buf)).add(fresh50) as libc::c_int
                             } else {
                                 let fresh51 = *offset;
                                 *offset = (*offset).wrapping_add(1);
@@ -1154,8 +1151,7 @@ pub unsafe extern "C" fn yajl_lex_lex(
                         break;
                     } else {
                         tok = yajl_lex_comment(lexer, jsonText, jsonTextLen, offset);
-                        if tok as libc::c_uint != yajl_tok_comment as libc::c_int as libc::c_uint
-                        {
+                        if tok as libc::c_uint != yajl_tok_comment as libc::c_int as libc::c_uint {
                             break;
                         }
                         tok = yajl_tok_error;

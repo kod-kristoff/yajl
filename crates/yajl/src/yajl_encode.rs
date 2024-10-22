@@ -203,8 +203,7 @@ pub unsafe extern "C" fn yajl_string_decode(
                     {
                         end = end.wrapping_add(1);
                         if *str.add(end) as libc::c_int == '\\' as i32
-                            && *str.add(end.wrapping_add(1 as libc::c_int as usize))
-                                as libc::c_int
+                            && *str.add(end.wrapping_add(1 as libc::c_int as usize)) as libc::c_int
                                 == 'u' as i32
                         {
                             let mut surrogate: libc::c_uint = 0 as libc::c_int as libc::c_uint;
