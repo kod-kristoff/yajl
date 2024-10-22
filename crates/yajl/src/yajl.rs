@@ -133,7 +133,7 @@ pub unsafe extern "C" fn yajl_status_to_string(mut stat: yajl_status) -> *const 
         }
         _ => {}
     }
-    return statStr;
+    statStr
 }
 
 #[cfg(feature = "nightly")]
@@ -182,7 +182,7 @@ pub unsafe extern "C" fn yajl_config(
             rv = 0 as libc::c_int;
         }
     }
-    return rv;
+    rv
 }
 
 #[no_mangle]
@@ -201,7 +201,7 @@ pub unsafe extern "C" fn yajl_parse(
         );
     }
     status = yajl_do_parse(hand, jsonText, jsonTextLen);
-    return status;
+    status
 }
 #[no_mangle]
 pub unsafe extern "C" fn yajl_complete_parse(mut hand: yajl_handle) -> yajl_status {
@@ -213,7 +213,7 @@ pub unsafe extern "C" fn yajl_complete_parse(mut hand: yajl_handle) -> yajl_stat
                 as libc::c_int as libc::c_uint,
         );
     }
-    return yajl_do_finish(hand);
+    yajl_do_finish(hand)
 }
 #[no_mangle]
 pub unsafe extern "C" fn yajl_get_error(
@@ -222,15 +222,15 @@ pub unsafe extern "C" fn yajl_get_error(
     mut jsonText: *const libc::c_uchar,
     mut jsonTextLen: size_t,
 ) -> *mut libc::c_uchar {
-    return yajl_render_error_string(hand, jsonText, jsonTextLen, verbose);
+    yajl_render_error_string(hand, jsonText, jsonTextLen, verbose)
 }
 #[no_mangle]
 pub unsafe extern "C" fn yajl_get_bytes_consumed(mut hand: yajl_handle) -> size_t {
     if hand.is_null() {
-        return 0 as libc::c_int as size_t;
+        0 as libc::c_int as size_t
     } else {
-        return (*hand).bytesConsumed;
-    };
+        (*hand).bytesConsumed
+    }
 }
 #[no_mangle]
 pub unsafe extern "C" fn yajl_free_error(mut hand: yajl_handle, mut str: *mut libc::c_uchar) {
