@@ -18,14 +18,14 @@ unsafe extern "C" fn yajl_internal_malloc(
     mut ctx: *mut libc::c_void,
     mut sz: size_t,
 ) -> *mut libc::c_void {
-    return libc::malloc(sz);
+    libc::malloc(sz)
 }
 unsafe extern "C" fn yajl_internal_realloc(
     mut ctx: *mut libc::c_void,
     mut previous: *mut libc::c_void,
     mut sz: size_t,
 ) -> *mut libc::c_void {
-    return libc::realloc(previous, sz);
+    libc::realloc(previous, sz)
 }
 unsafe extern "C" fn yajl_internal_free(mut ctx: *mut libc::c_void, mut ptr: *mut libc::c_void) {
     libc::free(ptr);
@@ -47,5 +47,5 @@ pub unsafe extern "C" fn yajl_set_default_alloc_funcs(mut yaf: *mut yajl_alloc_f
                 size_t,
             ) -> *mut libc::c_void,
     );
-    (*yaf).ctx = 0 as *mut libc::c_void;
+    (*yaf).ctx = std::ptr::null_mut::<libc::c_void>();
 }

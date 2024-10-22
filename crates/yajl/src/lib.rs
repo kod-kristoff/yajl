@@ -6,6 +6,7 @@
 #![allow(unused_assignments)]
 #![allow(unused_mut)]
 #![allow(unused_variables)]
+#![allow(clippy::missing_safety_doc)]
 #![cfg_attr(feature = "nightly", feature(c_variadic))]
 #![cfg_attr(feature = "nightly", feature(extern_types))]
 

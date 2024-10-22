@@ -145,7 +145,7 @@ pub unsafe extern "C" fn yajl_gen_alloc(mut afs: *const yajl_alloc_funcs) -> yaj
         malloc: None,
         realloc: None,
         free: None,
-        ctx: 0 as *mut libc::c_void,
+        ctx: std::ptr::null_mut::<libc::c_void>(),
     };
     if !afs.is_null() {
         if ((*afs).malloc).is_none() || ((*afs).realloc).is_none() || ((*afs).free).is_none() {
@@ -157,7 +157,7 @@ pub unsafe extern "C" fn yajl_gen_alloc(mut afs: *const yajl_alloc_funcs) -> yaj
     }
     g = ((*afs).malloc).expect("non-null function pointer")(
         (*afs).ctx,
-        ::core::mem::size_of::<yajl_gen_t>() as usize,
+        ::core::mem::size_of::<yajl_gen_t>(),
     ) as yajl_gen;
     if g.is_null() {
         return 0 as yajl_gen;
@@ -165,12 +165,12 @@ pub unsafe extern "C" fn yajl_gen_alloc(mut afs: *const yajl_alloc_funcs) -> yaj
     memset(
         g as *mut libc::c_void,
         0 as libc::c_int,
-        ::core::mem::size_of::<yajl_gen_t>() as usize,
+        ::core::mem::size_of::<yajl_gen_t>(),
     );
     memcpy(
         &mut (*g).alloc as *mut yajl_alloc_funcs as *mut libc::c_void,
         afs as *mut libc::c_void,
-        ::core::mem::size_of::<yajl_alloc_funcs>() as usize,
+        ::core::mem::size_of::<yajl_alloc_funcs>(),
     );
     (*g).print = ::core::mem::transmute::<
         Option<unsafe extern "C" fn(yajl_buf, *const libc::c_void, size_t) -> ()>,
@@ -180,7 +180,7 @@ pub unsafe extern "C" fn yajl_gen_alloc(mut afs: *const yajl_alloc_funcs) -> yaj
     ));
     (*g).ctx = yajl_buf_alloc(&mut (*g).alloc) as *mut libc::c_void;
     (*g).indentString = b"    \0" as *const u8 as *const libc::c_char;
-    return g;
+    g
 }
 #[no_mangle]
 pub unsafe extern "C" fn yajl_gen_reset(mut g: yajl_gen, mut sep: *const libc::c_char) {
@@ -188,7 +188,7 @@ pub unsafe extern "C" fn yajl_gen_reset(mut g: yajl_gen, mut sep: *const libc::c
     memset(
         &mut (*g).state as *mut [yajl_gen_state; 128] as *mut libc::c_void,
         0 as libc::c_int,
-        ::core::mem::size_of::<[yajl_gen_state; 128]>() as usize,
+        ::core::mem::size_of::<[yajl_gen_state; 128]>(),
     );
     if !sep.is_null() {
         ((*g).print).expect("non-null function pointer")((*g).ctx, sep, strlen(sep));
@@ -218,12 +218,10 @@ pub unsafe extern "C" fn yajl_gen_integer(
         == yajl_gen_error as libc::c_int as libc::c_uint
     {
         return yajl_gen_in_error_state;
-    } else {
-        if (*g).state[(*g).depth as usize] as libc::c_uint
-            == yajl_gen_complete as libc::c_int as libc::c_uint
-        {
-            return yajl_gen_generation_complete;
-        }
+    } else if (*g).state[(*g).depth as usize] as libc::c_uint
+        == yajl_gen_complete as libc::c_int as libc::c_uint
+    {
+        return yajl_gen_generation_complete;
     }
     if (*g).state[(*g).depth as usize] as libc::c_uint
         == yajl_gen_map_key as libc::c_int as libc::c_uint
@@ -265,20 +263,16 @@ pub unsafe extern "C" fn yajl_gen_integer(
             );
         }
     }
-    if (*g).flags & yajl_gen_beautify as libc::c_int as libc::c_uint != 0 {
-        if (*g).state[(*g).depth as usize] as libc::c_uint
-            != yajl_gen_map_val as libc::c_int as libc::c_uint
-        {
-            let mut _i: libc::c_uint = 0;
-            _i = 0 as libc::c_int as libc::c_uint;
-            while _i < (*g).depth {
-                ((*g).print).expect("non-null function pointer")(
-                    (*g).ctx,
-                    (*g).indentString,
-                    strlen((*g).indentString) as libc::c_uint as size_t,
-                );
-                _i = _i.wrapping_add(1);
-            }
+    if (*g).flags & yajl_gen_beautify as libc::c_int as libc::c_uint != 0 && (*g).state[(*g).depth as usize] as libc::c_uint != yajl_gen_map_val as libc::c_int as libc::c_uint {
+        let mut _i: libc::c_uint = 0;
+        _i = 0 as libc::c_int as libc::c_uint;
+        while _i < (*g).depth {
+            ((*g).print).expect("non-null function pointer")(
+                (*g).ctx,
+                (*g).indentString,
+                strlen((*g).indentString) as libc::c_uint as size_t,
+            );
+            _i = _i.wrapping_add(1);
         }
     }
     sprintf(
@@ -316,7 +310,7 @@ pub unsafe extern "C" fn yajl_gen_integer(
             1 as libc::c_int as size_t,
         );
     }
-    return yajl_gen_status_ok;
+    yajl_gen_status_ok
 }
 #[no_mangle]
 pub unsafe extern "C" fn yajl_gen_double(
@@ -328,12 +322,10 @@ pub unsafe extern "C" fn yajl_gen_double(
         == yajl_gen_error as libc::c_int as libc::c_uint
     {
         return yajl_gen_in_error_state;
-    } else {
-        if (*g).state[(*g).depth as usize] as libc::c_uint
-            == yajl_gen_complete as libc::c_int as libc::c_uint
-        {
-            return yajl_gen_generation_complete;
-        }
+    } else if (*g).state[(*g).depth as usize] as libc::c_uint
+        == yajl_gen_complete as libc::c_int as libc::c_uint
+    {
+        return yajl_gen_generation_complete;
     }
     if (*g).state[(*g).depth as usize] as libc::c_uint
         == yajl_gen_map_key as libc::c_int as libc::c_uint
@@ -388,20 +380,16 @@ pub unsafe extern "C" fn yajl_gen_double(
             );
         }
     }
-    if (*g).flags & yajl_gen_beautify as libc::c_int as libc::c_uint != 0 {
-        if (*g).state[(*g).depth as usize] as libc::c_uint
-            != yajl_gen_map_val as libc::c_int as libc::c_uint
-        {
-            let mut _i: libc::c_uint = 0;
-            _i = 0 as libc::c_int as libc::c_uint;
-            while _i < (*g).depth {
-                ((*g).print).expect("non-null function pointer")(
-                    (*g).ctx,
-                    (*g).indentString,
-                    strlen((*g).indentString) as libc::c_uint as size_t,
-                );
-                _i = _i.wrapping_add(1);
-            }
+    if (*g).flags & yajl_gen_beautify as libc::c_int as libc::c_uint != 0 && (*g).state[(*g).depth as usize] as libc::c_uint != yajl_gen_map_val as libc::c_int as libc::c_uint {
+        let mut _i: libc::c_uint = 0;
+        _i = 0 as libc::c_int as libc::c_uint;
+        while _i < (*g).depth {
+            ((*g).print).expect("non-null function pointer")(
+                (*g).ctx,
+                (*g).indentString,
+                strlen((*g).indentString) as libc::c_uint as size_t,
+            );
+            _i = _i.wrapping_add(1);
         }
     }
     sprintf(
@@ -446,7 +434,7 @@ pub unsafe extern "C" fn yajl_gen_double(
             1 as libc::c_int as size_t,
         );
     }
-    return yajl_gen_status_ok;
+    yajl_gen_status_ok
 }
 #[no_mangle]
 pub unsafe extern "C" fn yajl_gen_number(
@@ -458,12 +446,10 @@ pub unsafe extern "C" fn yajl_gen_number(
         == yajl_gen_error as libc::c_int as libc::c_uint
     {
         return yajl_gen_in_error_state;
-    } else {
-        if (*g).state[(*g).depth as usize] as libc::c_uint
-            == yajl_gen_complete as libc::c_int as libc::c_uint
-        {
-            return yajl_gen_generation_complete;
-        }
+    } else if (*g).state[(*g).depth as usize] as libc::c_uint
+        == yajl_gen_complete as libc::c_int as libc::c_uint
+    {
+        return yajl_gen_generation_complete;
     }
     if (*g).state[(*g).depth as usize] as libc::c_uint
         == yajl_gen_map_key as libc::c_int as libc::c_uint
@@ -505,20 +491,16 @@ pub unsafe extern "C" fn yajl_gen_number(
             );
         }
     }
-    if (*g).flags & yajl_gen_beautify as libc::c_int as libc::c_uint != 0 {
-        if (*g).state[(*g).depth as usize] as libc::c_uint
-            != yajl_gen_map_val as libc::c_int as libc::c_uint
-        {
-            let mut _i: libc::c_uint = 0;
-            _i = 0 as libc::c_int as libc::c_uint;
-            while _i < (*g).depth {
-                ((*g).print).expect("non-null function pointer")(
-                    (*g).ctx,
-                    (*g).indentString,
-                    strlen((*g).indentString) as libc::c_uint as size_t,
-                );
-                _i = _i.wrapping_add(1);
-            }
+    if (*g).flags & yajl_gen_beautify as libc::c_int as libc::c_uint != 0 && (*g).state[(*g).depth as usize] as libc::c_uint != yajl_gen_map_val as libc::c_int as libc::c_uint {
+        let mut _i: libc::c_uint = 0;
+        _i = 0 as libc::c_int as libc::c_uint;
+        while _i < (*g).depth {
+            ((*g).print).expect("non-null function pointer")(
+                (*g).ctx,
+                (*g).indentString,
+                strlen((*g).indentString) as libc::c_uint as size_t,
+            );
+            _i = _i.wrapping_add(1);
         }
     }
     ((*g).print).expect("non-null function pointer")((*g).ctx, s, l);
@@ -547,7 +529,7 @@ pub unsafe extern "C" fn yajl_gen_number(
             1 as libc::c_int as size_t,
         );
     }
-    return yajl_gen_status_ok;
+    yajl_gen_status_ok
 }
 #[no_mangle]
 pub unsafe extern "C" fn yajl_gen_string(
@@ -555,21 +537,17 @@ pub unsafe extern "C" fn yajl_gen_string(
     mut str: *const libc::c_uchar,
     mut len: size_t,
 ) -> yajl_gen_status {
-    if (*g).flags & yajl_gen_validate_utf8 as libc::c_int as libc::c_uint != 0 {
-        if yajl_string_validate_utf8(str, len) == 0 {
-            return yajl_gen_invalid_string;
-        }
+    if (*g).flags & yajl_gen_validate_utf8 as libc::c_int as libc::c_uint != 0 && yajl_string_validate_utf8(str, len) == 0 {
+        return yajl_gen_invalid_string;
     }
     if (*g).state[(*g).depth as usize] as libc::c_uint
         == yajl_gen_error as libc::c_int as libc::c_uint
     {
         return yajl_gen_in_error_state;
-    } else {
-        if (*g).state[(*g).depth as usize] as libc::c_uint
-            == yajl_gen_complete as libc::c_int as libc::c_uint
-        {
-            return yajl_gen_generation_complete;
-        }
+    } else if (*g).state[(*g).depth as usize] as libc::c_uint
+        == yajl_gen_complete as libc::c_int as libc::c_uint
+    {
+        return yajl_gen_generation_complete;
     }
     if (*g).state[(*g).depth as usize] as libc::c_uint
         == yajl_gen_map_key as libc::c_int as libc::c_uint
@@ -604,20 +582,16 @@ pub unsafe extern "C" fn yajl_gen_string(
             );
         }
     }
-    if (*g).flags & yajl_gen_beautify as libc::c_int as libc::c_uint != 0 {
-        if (*g).state[(*g).depth as usize] as libc::c_uint
-            != yajl_gen_map_val as libc::c_int as libc::c_uint
-        {
-            let mut _i: libc::c_uint = 0;
-            _i = 0 as libc::c_int as libc::c_uint;
-            while _i < (*g).depth {
-                ((*g).print).expect("non-null function pointer")(
-                    (*g).ctx,
-                    (*g).indentString,
-                    strlen((*g).indentString) as libc::c_uint as size_t,
-                );
-                _i = _i.wrapping_add(1);
-            }
+    if (*g).flags & yajl_gen_beautify as libc::c_int as libc::c_uint != 0 && (*g).state[(*g).depth as usize] as libc::c_uint != yajl_gen_map_val as libc::c_int as libc::c_uint {
+        let mut _i: libc::c_uint = 0;
+        _i = 0 as libc::c_int as libc::c_uint;
+        while _i < (*g).depth {
+            ((*g).print).expect("non-null function pointer")(
+                (*g).ctx,
+                (*g).indentString,
+                strlen((*g).indentString) as libc::c_uint as size_t,
+            );
+            _i = _i.wrapping_add(1);
         }
     }
     ((*g).print).expect("non-null function pointer")(
@@ -662,7 +636,7 @@ pub unsafe extern "C" fn yajl_gen_string(
             1 as libc::c_int as size_t,
         );
     }
-    return yajl_gen_status_ok;
+    yajl_gen_status_ok
 }
 #[no_mangle]
 pub unsafe extern "C" fn yajl_gen_null(mut g: yajl_gen) -> yajl_gen_status {
@@ -670,12 +644,10 @@ pub unsafe extern "C" fn yajl_gen_null(mut g: yajl_gen) -> yajl_gen_status {
         == yajl_gen_error as libc::c_int as libc::c_uint
     {
         return yajl_gen_in_error_state;
-    } else {
-        if (*g).state[(*g).depth as usize] as libc::c_uint
-            == yajl_gen_complete as libc::c_int as libc::c_uint
-        {
-            return yajl_gen_generation_complete;
-        }
+    } else if (*g).state[(*g).depth as usize] as libc::c_uint
+        == yajl_gen_complete as libc::c_int as libc::c_uint
+    {
+        return yajl_gen_generation_complete;
     }
     if (*g).state[(*g).depth as usize] as libc::c_uint
         == yajl_gen_map_key as libc::c_int as libc::c_uint
@@ -717,20 +689,16 @@ pub unsafe extern "C" fn yajl_gen_null(mut g: yajl_gen) -> yajl_gen_status {
             );
         }
     }
-    if (*g).flags & yajl_gen_beautify as libc::c_int as libc::c_uint != 0 {
-        if (*g).state[(*g).depth as usize] as libc::c_uint
-            != yajl_gen_map_val as libc::c_int as libc::c_uint
-        {
-            let mut _i: libc::c_uint = 0;
-            _i = 0 as libc::c_int as libc::c_uint;
-            while _i < (*g).depth {
-                ((*g).print).expect("non-null function pointer")(
-                    (*g).ctx,
-                    (*g).indentString,
-                    strlen((*g).indentString) as libc::c_uint as size_t,
-                );
-                _i = _i.wrapping_add(1);
-            }
+    if (*g).flags & yajl_gen_beautify as libc::c_int as libc::c_uint != 0 && (*g).state[(*g).depth as usize] as libc::c_uint != yajl_gen_map_val as libc::c_int as libc::c_uint {
+        let mut _i: libc::c_uint = 0;
+        _i = 0 as libc::c_int as libc::c_uint;
+        while _i < (*g).depth {
+            ((*g).print).expect("non-null function pointer")(
+                (*g).ctx,
+                (*g).indentString,
+                strlen((*g).indentString) as libc::c_uint as size_t,
+            );
+            _i = _i.wrapping_add(1);
         }
     }
     ((*g).print).expect("non-null function pointer")(
@@ -763,7 +731,7 @@ pub unsafe extern "C" fn yajl_gen_null(mut g: yajl_gen) -> yajl_gen_status {
             1 as libc::c_int as size_t,
         );
     }
-    return yajl_gen_status_ok;
+    yajl_gen_status_ok
 }
 #[no_mangle]
 pub unsafe extern "C" fn yajl_gen_bool(
@@ -779,12 +747,10 @@ pub unsafe extern "C" fn yajl_gen_bool(
         == yajl_gen_error as libc::c_int as libc::c_uint
     {
         return yajl_gen_in_error_state;
-    } else {
-        if (*g).state[(*g).depth as usize] as libc::c_uint
-            == yajl_gen_complete as libc::c_int as libc::c_uint
-        {
-            return yajl_gen_generation_complete;
-        }
+    } else if (*g).state[(*g).depth as usize] as libc::c_uint
+        == yajl_gen_complete as libc::c_int as libc::c_uint
+    {
+        return yajl_gen_generation_complete;
     }
     if (*g).state[(*g).depth as usize] as libc::c_uint
         == yajl_gen_map_key as libc::c_int as libc::c_uint
@@ -826,20 +792,16 @@ pub unsafe extern "C" fn yajl_gen_bool(
             );
         }
     }
-    if (*g).flags & yajl_gen_beautify as libc::c_int as libc::c_uint != 0 {
-        if (*g).state[(*g).depth as usize] as libc::c_uint
-            != yajl_gen_map_val as libc::c_int as libc::c_uint
-        {
-            let mut _i: libc::c_uint = 0;
-            _i = 0 as libc::c_int as libc::c_uint;
-            while _i < (*g).depth {
-                ((*g).print).expect("non-null function pointer")(
-                    (*g).ctx,
-                    (*g).indentString,
-                    strlen((*g).indentString) as libc::c_uint as size_t,
-                );
-                _i = _i.wrapping_add(1);
-            }
+    if (*g).flags & yajl_gen_beautify as libc::c_int as libc::c_uint != 0 && (*g).state[(*g).depth as usize] as libc::c_uint != yajl_gen_map_val as libc::c_int as libc::c_uint {
+        let mut _i: libc::c_uint = 0;
+        _i = 0 as libc::c_int as libc::c_uint;
+        while _i < (*g).depth {
+            ((*g).print).expect("non-null function pointer")(
+                (*g).ctx,
+                (*g).indentString,
+                strlen((*g).indentString) as libc::c_uint as size_t,
+            );
+            _i = _i.wrapping_add(1);
         }
     }
     ((*g).print).expect("non-null function pointer")(
@@ -872,7 +834,7 @@ pub unsafe extern "C" fn yajl_gen_bool(
             1 as libc::c_int as size_t,
         );
     }
-    return yajl_gen_status_ok;
+    yajl_gen_status_ok
 }
 #[no_mangle]
 pub unsafe extern "C" fn yajl_gen_map_open(mut g: yajl_gen) -> yajl_gen_status {
@@ -880,12 +842,10 @@ pub unsafe extern "C" fn yajl_gen_map_open(mut g: yajl_gen) -> yajl_gen_status {
         == yajl_gen_error as libc::c_int as libc::c_uint
     {
         return yajl_gen_in_error_state;
-    } else {
-        if (*g).state[(*g).depth as usize] as libc::c_uint
-            == yajl_gen_complete as libc::c_int as libc::c_uint
-        {
-            return yajl_gen_generation_complete;
-        }
+    } else if (*g).state[(*g).depth as usize] as libc::c_uint
+        == yajl_gen_complete as libc::c_int as libc::c_uint
+    {
+        return yajl_gen_generation_complete;
     }
     if (*g).state[(*g).depth as usize] as libc::c_uint
         == yajl_gen_map_key as libc::c_int as libc::c_uint
@@ -927,20 +887,16 @@ pub unsafe extern "C" fn yajl_gen_map_open(mut g: yajl_gen) -> yajl_gen_status {
             );
         }
     }
-    if (*g).flags & yajl_gen_beautify as libc::c_int as libc::c_uint != 0 {
-        if (*g).state[(*g).depth as usize] as libc::c_uint
-            != yajl_gen_map_val as libc::c_int as libc::c_uint
-        {
-            let mut _i: libc::c_uint = 0;
-            _i = 0 as libc::c_int as libc::c_uint;
-            while _i < (*g).depth {
-                ((*g).print).expect("non-null function pointer")(
-                    (*g).ctx,
-                    (*g).indentString,
-                    strlen((*g).indentString) as libc::c_uint as size_t,
-                );
-                _i = _i.wrapping_add(1);
-            }
+    if (*g).flags & yajl_gen_beautify as libc::c_int as libc::c_uint != 0 && (*g).state[(*g).depth as usize] as libc::c_uint != yajl_gen_map_val as libc::c_int as libc::c_uint {
+        let mut _i: libc::c_uint = 0;
+        _i = 0 as libc::c_int as libc::c_uint;
+        while _i < (*g).depth {
+            ((*g).print).expect("non-null function pointer")(
+                (*g).ctx,
+                (*g).indentString,
+                strlen((*g).indentString) as libc::c_uint as size_t,
+            );
+            _i = _i.wrapping_add(1);
         }
     }
     (*g).depth = ((*g).depth).wrapping_add(1);
@@ -970,7 +926,7 @@ pub unsafe extern "C" fn yajl_gen_map_open(mut g: yajl_gen) -> yajl_gen_status {
             1 as libc::c_int as size_t,
         );
     }
-    return yajl_gen_status_ok;
+    yajl_gen_status_ok
 }
 #[no_mangle]
 pub unsafe extern "C" fn yajl_gen_map_close(mut g: yajl_gen) -> yajl_gen_status {
@@ -978,12 +934,10 @@ pub unsafe extern "C" fn yajl_gen_map_close(mut g: yajl_gen) -> yajl_gen_status 
         == yajl_gen_error as libc::c_int as libc::c_uint
     {
         return yajl_gen_in_error_state;
-    } else {
-        if (*g).state[(*g).depth as usize] as libc::c_uint
-            == yajl_gen_complete as libc::c_int as libc::c_uint
-        {
-            return yajl_gen_generation_complete;
-        }
+    } else if (*g).state[(*g).depth as usize] as libc::c_uint
+        == yajl_gen_complete as libc::c_int as libc::c_uint
+    {
+        return yajl_gen_generation_complete;
     }
     (*g).depth = ((*g).depth).wrapping_sub(1);
     if (*g).depth >= 128 as libc::c_int as libc::c_uint {
@@ -1011,20 +965,16 @@ pub unsafe extern "C" fn yajl_gen_map_close(mut g: yajl_gen) -> yajl_gen_status 
         }
         _ => {}
     }
-    if (*g).flags & yajl_gen_beautify as libc::c_int as libc::c_uint != 0 {
-        if (*g).state[(*g).depth as usize] as libc::c_uint
-            != yajl_gen_map_val as libc::c_int as libc::c_uint
-        {
-            let mut _i: libc::c_uint = 0;
-            _i = 0 as libc::c_int as libc::c_uint;
-            while _i < (*g).depth {
-                ((*g).print).expect("non-null function pointer")(
-                    (*g).ctx,
-                    (*g).indentString,
-                    strlen((*g).indentString) as libc::c_uint as size_t,
-                );
-                _i = _i.wrapping_add(1);
-            }
+    if (*g).flags & yajl_gen_beautify as libc::c_int as libc::c_uint != 0 && (*g).state[(*g).depth as usize] as libc::c_uint != yajl_gen_map_val as libc::c_int as libc::c_uint {
+        let mut _i: libc::c_uint = 0;
+        _i = 0 as libc::c_int as libc::c_uint;
+        while _i < (*g).depth {
+            ((*g).print).expect("non-null function pointer")(
+                (*g).ctx,
+                (*g).indentString,
+                strlen((*g).indentString) as libc::c_uint as size_t,
+            );
+            _i = _i.wrapping_add(1);
         }
     }
     ((*g).print).expect("non-null function pointer")(
@@ -1042,7 +992,7 @@ pub unsafe extern "C" fn yajl_gen_map_close(mut g: yajl_gen) -> yajl_gen_status 
             1 as libc::c_int as size_t,
         );
     }
-    return yajl_gen_status_ok;
+    yajl_gen_status_ok
 }
 #[no_mangle]
 pub unsafe extern "C" fn yajl_gen_array_open(mut g: yajl_gen) -> yajl_gen_status {
@@ -1050,12 +1000,10 @@ pub unsafe extern "C" fn yajl_gen_array_open(mut g: yajl_gen) -> yajl_gen_status
         == yajl_gen_error as libc::c_int as libc::c_uint
     {
         return yajl_gen_in_error_state;
-    } else {
-        if (*g).state[(*g).depth as usize] as libc::c_uint
-            == yajl_gen_complete as libc::c_int as libc::c_uint
-        {
-            return yajl_gen_generation_complete;
-        }
+    } else if (*g).state[(*g).depth as usize] as libc::c_uint
+        == yajl_gen_complete as libc::c_int as libc::c_uint
+    {
+        return yajl_gen_generation_complete;
     }
     if (*g).state[(*g).depth as usize] as libc::c_uint
         == yajl_gen_map_key as libc::c_int as libc::c_uint
@@ -1097,20 +1045,16 @@ pub unsafe extern "C" fn yajl_gen_array_open(mut g: yajl_gen) -> yajl_gen_status
             );
         }
     }
-    if (*g).flags & yajl_gen_beautify as libc::c_int as libc::c_uint != 0 {
-        if (*g).state[(*g).depth as usize] as libc::c_uint
-            != yajl_gen_map_val as libc::c_int as libc::c_uint
-        {
-            let mut _i: libc::c_uint = 0;
-            _i = 0 as libc::c_int as libc::c_uint;
-            while _i < (*g).depth {
-                ((*g).print).expect("non-null function pointer")(
-                    (*g).ctx,
-                    (*g).indentString,
-                    strlen((*g).indentString) as libc::c_uint as size_t,
-                );
-                _i = _i.wrapping_add(1);
-            }
+    if (*g).flags & yajl_gen_beautify as libc::c_int as libc::c_uint != 0 && (*g).state[(*g).depth as usize] as libc::c_uint != yajl_gen_map_val as libc::c_int as libc::c_uint {
+        let mut _i: libc::c_uint = 0;
+        _i = 0 as libc::c_int as libc::c_uint;
+        while _i < (*g).depth {
+            ((*g).print).expect("non-null function pointer")(
+                (*g).ctx,
+                (*g).indentString,
+                strlen((*g).indentString) as libc::c_uint as size_t,
+            );
+            _i = _i.wrapping_add(1);
         }
     }
     (*g).depth = ((*g).depth).wrapping_add(1);
@@ -1140,7 +1084,7 @@ pub unsafe extern "C" fn yajl_gen_array_open(mut g: yajl_gen) -> yajl_gen_status
             1 as libc::c_int as size_t,
         );
     }
-    return yajl_gen_status_ok;
+    yajl_gen_status_ok
 }
 #[no_mangle]
 pub unsafe extern "C" fn yajl_gen_array_close(mut g: yajl_gen) -> yajl_gen_status {
@@ -1148,12 +1092,10 @@ pub unsafe extern "C" fn yajl_gen_array_close(mut g: yajl_gen) -> yajl_gen_statu
         == yajl_gen_error as libc::c_int as libc::c_uint
     {
         return yajl_gen_in_error_state;
-    } else {
-        if (*g).state[(*g).depth as usize] as libc::c_uint
-            == yajl_gen_complete as libc::c_int as libc::c_uint
-        {
-            return yajl_gen_generation_complete;
-        }
+    } else if (*g).state[(*g).depth as usize] as libc::c_uint
+        == yajl_gen_complete as libc::c_int as libc::c_uint
+    {
+        return yajl_gen_generation_complete;
     }
     (*g).depth = ((*g).depth).wrapping_sub(1);
     if (*g).depth >= 128 as libc::c_int as libc::c_uint {
@@ -1181,20 +1123,16 @@ pub unsafe extern "C" fn yajl_gen_array_close(mut g: yajl_gen) -> yajl_gen_statu
         }
         _ => {}
     }
-    if (*g).flags & yajl_gen_beautify as libc::c_int as libc::c_uint != 0 {
-        if (*g).state[(*g).depth as usize] as libc::c_uint
-            != yajl_gen_map_val as libc::c_int as libc::c_uint
-        {
-            let mut _i: libc::c_uint = 0;
-            _i = 0 as libc::c_int as libc::c_uint;
-            while _i < (*g).depth {
-                ((*g).print).expect("non-null function pointer")(
-                    (*g).ctx,
-                    (*g).indentString,
-                    strlen((*g).indentString) as libc::c_uint as size_t,
-                );
-                _i = _i.wrapping_add(1);
-            }
+    if (*g).flags & yajl_gen_beautify as libc::c_int as libc::c_uint != 0 && (*g).state[(*g).depth as usize] as libc::c_uint != yajl_gen_map_val as libc::c_int as libc::c_uint {
+        let mut _i: libc::c_uint = 0;
+        _i = 0 as libc::c_int as libc::c_uint;
+        while _i < (*g).depth {
+            ((*g).print).expect("non-null function pointer")(
+                (*g).ctx,
+                (*g).indentString,
+                strlen((*g).indentString) as libc::c_uint as size_t,
+            );
+            _i = _i.wrapping_add(1);
         }
     }
     ((*g).print).expect("non-null function pointer")(
@@ -1212,7 +1150,7 @@ pub unsafe extern "C" fn yajl_gen_array_close(mut g: yajl_gen) -> yajl_gen_statu
             1 as libc::c_int as size_t,
         );
     }
-    return yajl_gen_status_ok;
+    yajl_gen_status_ok
 }
 #[no_mangle]
 pub unsafe extern "C" fn yajl_gen_get_buf(
@@ -1232,7 +1170,7 @@ pub unsafe extern "C" fn yajl_gen_get_buf(
     }
     *buf = yajl_buf_data((*g).ctx as yajl_buf);
     *len = yajl_buf_len((*g).ctx as yajl_buf);
-    return yajl_gen_status_ok;
+    yajl_gen_status_ok
 }
 #[no_mangle]
 pub unsafe extern "C" fn yajl_gen_clear(mut g: yajl_gen) {

@@ -1,14 +1,13 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 #![allow(non_upper_case_globals)]
-use libc;
 extern "C" {
 
-    fn yajl_alloc(
-        callbacks_0: *const yajl_callbacks,
-        afs: *mut yajl_alloc_funcs,
-        ctx: *mut libc::c_void,
-    ) -> yajl_handle;
+    // fn yajl_alloc(
+    //     callbacks_0: *const yajl_callbacks,
+    //     afs: *mut yajl_alloc_funcs,
+    //     ctx: *mut libc::c_void,
+    // ) -> yajl_handle;
     fn yajl_config(h: yajl_handle, opt: yajl_option, _: ...) -> libc::c_int;
     // fn yajl_free(handle: yajl_handle);
     fn yajl_parse(
@@ -49,6 +48,8 @@ pub type yajl_status = libc::c_uint;
 pub const yajl_status_error: yajl_status = 2;
 pub const yajl_status_client_canceled: yajl_status = 1;
 pub const yajl_status_ok: yajl_status = 0;
+use std::ptr::addr_of;
+
 use yajl::{
     yajl_alloc::yajl_alloc_funcs,
     yajl_parser::{yajl_callbacks, yajl_handle_t},
@@ -164,7 +165,7 @@ unsafe extern "C" fn test_yajl_map_key(
 ) -> libc::c_int {
     let str: *mut libc::c_char =
         malloc(stringLen.wrapping_add(1 as libc::c_int as usize)) as *mut libc::c_char;
-    *str.offset(stringLen as isize) = 0 as libc::c_int as libc::c_char;
+    *str.add(stringLen) = 0 as libc::c_int as libc::c_char;
     memcpy(
         str as *mut libc::c_void,
         stringVal as *const libc::c_void,
@@ -261,7 +262,7 @@ unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int
     };
     allocFuncs.ctx = &mut memCtx as *mut yajlTestMemoryContext as *mut libc::c_void;
     let hand = yajl_handle_t::alloc(
-        &callbacks,
+        addr_of!(callbacks),
         &mut allocFuncs,
         std::ptr::null_mut::<libc::c_void>(),
     );

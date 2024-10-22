@@ -35,8 +35,8 @@ pub unsafe extern "C" fn yajl_string_encode(
     hexBuf[3 as libc::c_int as usize] = '0' as i32 as libc::c_char;
     hexBuf[6 as libc::c_int as usize] = 0 as libc::c_int as libc::c_char;
     while end < len {
-        let mut escaped: *const libc::c_char = 0 as *const libc::c_char;
-        match *str.offset(end as isize) as libc::c_int {
+        let mut escaped: *const libc::c_char = std::ptr::null::<libc::c_char>();
+        match *str.add(end) as libc::c_int {
             13 => {
                 escaped = b"\\r\0" as *const u8 as *const libc::c_char;
             }
@@ -64,9 +64,9 @@ pub unsafe extern "C" fn yajl_string_encode(
                 escaped = b"\\t\0" as *const u8 as *const libc::c_char;
             }
             _ => {
-                if (*str.offset(end as isize) as libc::c_int) < 32 as libc::c_int {
+                if (*str.add(end) as libc::c_int) < 32 as libc::c_int {
                     CharToHex(
-                        *str.offset(end as isize),
+                        *str.add(end),
                         hexBuf.as_mut_ptr().offset(4 as libc::c_int as isize),
                     );
                     escaped = hexBuf.as_mut_ptr();
@@ -76,7 +76,7 @@ pub unsafe extern "C" fn yajl_string_encode(
         if !escaped.is_null() {
             print.expect("non-null function pointer")(
                 ctx,
-                str.offset(beg as isize) as *const libc::c_char,
+                str.add(beg) as *const libc::c_char,
                 end.wrapping_sub(beg),
             );
             print.expect("non-null function pointer")(
@@ -92,7 +92,7 @@ pub unsafe extern "C" fn yajl_string_encode(
     }
     print.expect("non-null function pointer")(
         ctx,
-        str.offset(beg as isize) as *const libc::c_char,
+        str.add(beg) as *const libc::c_char,
         end.wrapping_sub(beg),
     );
 }
@@ -158,16 +158,16 @@ pub unsafe extern "C" fn yajl_string_decode(
     let mut end: size_t = 0 as libc::c_int as size_t;
     let mut current_block_25: u64;
     while end < len {
-        if *str.offset(end as isize) as libc::c_int == '\\' as i32 {
+        if *str.add(end) as libc::c_int == '\\' as i32 {
             let mut utf8Buf: [libc::c_char; 5] = [0; 5];
             let mut unescaped: *const libc::c_char = b"?\0" as *const u8 as *const libc::c_char;
             yajl_buf_append(
                 buf,
-                str.offset(beg as isize) as *const libc::c_void,
+                str.add(beg) as *const libc::c_void,
                 end.wrapping_sub(beg),
             );
             end = end.wrapping_add(1);
-            match *str.offset(end as isize) as libc::c_int {
+            match *str.add(end) as libc::c_int {
                 114 => {
                     unescaped = b"\r\0" as *const u8 as *const libc::c_char;
                 }
@@ -195,22 +195,22 @@ pub unsafe extern "C" fn yajl_string_decode(
                 117 => {
                     let mut codepoint: libc::c_uint = 0 as libc::c_int as libc::c_uint;
                     end = end.wrapping_add(1);
-                    hexToDigit(&mut codepoint, str.offset(end as isize));
+                    hexToDigit(&mut codepoint, str.add(end));
                     end =
                         (end as usize).wrapping_add(3 as libc::c_int as usize) as size_t as size_t;
                     if codepoint & 0xfc00 as libc::c_int as libc::c_uint
                         == 0xd800 as libc::c_int as libc::c_uint
                     {
                         end = end.wrapping_add(1);
-                        if *str.offset(end as isize) as libc::c_int == '\\' as i32
-                            && *str.offset(end.wrapping_add(1 as libc::c_int as usize) as isize)
+                        if *str.add(end) as libc::c_int == '\\' as i32
+                            && *str.add(end.wrapping_add(1 as libc::c_int as usize))
                                 as libc::c_int
                                 == 'u' as i32
                         {
                             let mut surrogate: libc::c_uint = 0 as libc::c_int as libc::c_uint;
                             hexToDigit(
                                 &mut surrogate,
-                                str.offset(end as isize).offset(2 as libc::c_int as isize),
+                                str.add(end).offset(2 as libc::c_int as isize),
                             );
                             codepoint = (codepoint & 0x3f as libc::c_int as libc::c_uint)
                                 << 10 as libc::c_int
@@ -262,7 +262,7 @@ pub unsafe extern "C" fn yajl_string_decode(
     }
     yajl_buf_append(
         buf,
-        str.offset(beg as isize) as *const libc::c_void,
+        str.add(beg) as *const libc::c_void,
         end.wrapping_sub(beg),
     );
 }
@@ -280,10 +280,10 @@ pub unsafe extern "C" fn yajl_string_validate_utf8(
     loop {
         let fresh0 = len;
         len = len.wrapping_sub(1);
-        if !(fresh0 != 0) {
+        if fresh0 == 0 {
             break;
         }
-        if !(*s as libc::c_int <= 0x7f as libc::c_int) {
+        if *s as libc::c_int > 0x7f as libc::c_int {
             if *s as libc::c_int >> 5 as libc::c_int == 0x6 as libc::c_int {
                 s = s.offset(1);
                 let fresh1 = len;
@@ -291,7 +291,7 @@ pub unsafe extern "C" fn yajl_string_validate_utf8(
                 if fresh1 == 0 {
                     return 0 as libc::c_int;
                 }
-                if !(*s as libc::c_int >> 6 as libc::c_int == 0x2 as libc::c_int) {
+                if *s as libc::c_int >> 6 as libc::c_int != 0x2 as libc::c_int {
                     return 0 as libc::c_int;
                 }
             } else if *s as libc::c_int >> 4 as libc::c_int == 0xe as libc::c_int {
@@ -301,7 +301,7 @@ pub unsafe extern "C" fn yajl_string_validate_utf8(
                 if fresh2 == 0 {
                     return 0 as libc::c_int;
                 }
-                if !(*s as libc::c_int >> 6 as libc::c_int == 0x2 as libc::c_int) {
+                if *s as libc::c_int >> 6 as libc::c_int != 0x2 as libc::c_int {
                     return 0 as libc::c_int;
                 }
                 s = s.offset(1);
@@ -310,7 +310,7 @@ pub unsafe extern "C" fn yajl_string_validate_utf8(
                 if fresh3 == 0 {
                     return 0 as libc::c_int;
                 }
-                if !(*s as libc::c_int >> 6 as libc::c_int == 0x2 as libc::c_int) {
+                if *s as libc::c_int >> 6 as libc::c_int != 0x2 as libc::c_int {
                     return 0 as libc::c_int;
                 }
             } else if *s as libc::c_int >> 3 as libc::c_int == 0x1e as libc::c_int {
@@ -320,7 +320,7 @@ pub unsafe extern "C" fn yajl_string_validate_utf8(
                 if fresh4 == 0 {
                     return 0 as libc::c_int;
                 }
-                if !(*s as libc::c_int >> 6 as libc::c_int == 0x2 as libc::c_int) {
+                if *s as libc::c_int >> 6 as libc::c_int != 0x2 as libc::c_int {
                     return 0 as libc::c_int;
                 }
                 s = s.offset(1);
@@ -329,7 +329,7 @@ pub unsafe extern "C" fn yajl_string_validate_utf8(
                 if fresh5 == 0 {
                     return 0 as libc::c_int;
                 }
-                if !(*s as libc::c_int >> 6 as libc::c_int == 0x2 as libc::c_int) {
+                if *s as libc::c_int >> 6 as libc::c_int != 0x2 as libc::c_int {
                     return 0 as libc::c_int;
                 }
                 s = s.offset(1);
@@ -338,7 +338,7 @@ pub unsafe extern "C" fn yajl_string_validate_utf8(
                 if fresh6 == 0 {
                     return 0 as libc::c_int;
                 }
-                if !(*s as libc::c_int >> 6 as libc::c_int == 0x2 as libc::c_int) {
+                if *s as libc::c_int >> 6 as libc::c_int != 0x2 as libc::c_int {
                     return 0 as libc::c_int;
                 }
             } else {
@@ -347,5 +347,5 @@ pub unsafe extern "C" fn yajl_string_validate_utf8(
         }
         s = s.offset(1);
     }
-    return 1 as libc::c_int;
+    1 as libc::c_int
 }
