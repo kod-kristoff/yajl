@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/yajl", "crates/yajl-clib"]
+members = ["crates/yajl", "crates/yajl-clib", "examples/yajl_test"]
 
 [workspace.package]
 edition = "2021"
@@ -8,3 +8,6 @@ version = "0.1.0"
 
 [workspace.dependencies]
 yajl = { path = "crates/yajl" }
+
+# external crates
+libc = "0.2"
