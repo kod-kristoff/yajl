@@ -1,3 +1,7 @@
+#![allow(clippy::missing_safety_doc)]
+#![allow(unused_unsafe)]
+use std::ptr::{addr_of, null_mut};
+
 use ::libc;
 
 use crate::{yajl_buf::yajl_buf_t, yajl_lex::yajl_lexer_t};
@@ -5,19 +9,11 @@ extern "C" {
     // pub type yajl_buf_t;
     // pub type yajl_lexer_t;
     fn strtod(_: *const libc::c_char, _: *mut *mut libc::c_char) -> libc::c_double;
-    fn malloc(_: libc::c_ulong) -> *mut libc::c_void;
-    fn realloc(_: *mut libc::c_void, _: libc::c_ulong) -> *mut libc::c_void;
-    fn free(_: *mut libc::c_void);
-    fn snprintf(
-        _: *mut libc::c_char,
-        _: libc::c_ulong,
-        _: *const libc::c_char,
-        _: ...
-    ) -> libc::c_int;
-    fn memcpy(_: *mut libc::c_void, _: *const libc::c_void, _: libc::c_ulong) -> *mut libc::c_void;
-    fn memset(_: *mut libc::c_void, _: libc::c_int, _: libc::c_ulong) -> *mut libc::c_void;
+    fn snprintf(_: *mut libc::c_char, _: usize, _: *const libc::c_char, _: ...) -> libc::c_int;
+    fn memcpy(_: *mut libc::c_void, _: *const libc::c_void, _: usize) -> *mut libc::c_void;
+    fn memset(_: *mut libc::c_void, _: libc::c_int, _: usize) -> *mut libc::c_void;
     fn strcmp(_: *const libc::c_char, _: *const libc::c_char) -> libc::c_int;
-    fn strlen(_: *const libc::c_char) -> libc::c_ulong;
+    fn strlen(_: *const libc::c_char) -> usize;
     #[cfg_attr(target_os = "android", link_name = "__errno")]
     fn __errno_location() -> *mut libc::c_int;
     fn yajl_alloc(
@@ -41,7 +37,7 @@ extern "C" {
     ) -> *mut libc::c_uchar;
     fn yajl_parse_integer(number: *const libc::c_uchar, length: libc::c_uint) -> libc::c_longlong;
 }
-pub type size_t = libc::c_ulong;
+pub type size_t = usize;
 pub type yajl_malloc_func =
     Option<unsafe extern "C" fn(*mut libc::c_void, size_t) -> *mut libc::c_void>;
 pub type yajl_free_func = Option<unsafe extern "C" fn(*mut libc::c_void, *mut libc::c_void) -> ()>;
@@ -175,14 +171,14 @@ pub const yajl_dont_validate_strings: yajl_option = 2;
 pub const yajl_allow_comments: yajl_option = 1;
 unsafe extern "C" fn value_alloc(mut type_0: yajl_type) -> yajl_val {
     let mut v: yajl_val = 0 as *mut yajl_val_s;
-    v = malloc(::core::mem::size_of::<yajl_val_s>() as libc::c_ulong) as yajl_val;
+    v = libc::malloc(::core::mem::size_of::<yajl_val_s>()) as yajl_val;
     if v.is_null() {
         return 0 as yajl_val;
     }
     memset(
         v as *mut libc::c_void,
         0 as libc::c_int,
-        ::core::mem::size_of::<yajl_val_s>() as libc::c_ulong,
+        ::core::mem::size_of::<yajl_val_s>() as usize,
     );
     (*v).type_0 = type_0;
     return v;
@@ -196,7 +192,9 @@ unsafe extern "C" fn yajl_object_free(mut v: yajl_val) {
     }
     i = 0 as libc::c_int as size_t;
     while i < (*v).u.object.len {
-        free(*((*v).u.object.keys).offset(i as isize) as *mut libc::c_char as *mut libc::c_void);
+        libc::free(
+            *((*v).u.object.keys).offset(i as isize) as *mut libc::c_char as *mut libc::c_void,
+        );
         let ref mut fresh0 = *((*v).u.object.keys).offset(i as isize);
         *fresh0 = 0 as *const libc::c_char;
         yajl_tree_free(*((*v).u.object.values).offset(i as isize));
@@ -204,9 +202,9 @@ unsafe extern "C" fn yajl_object_free(mut v: yajl_val) {
         *fresh1 = 0 as yajl_val;
         i = i.wrapping_add(1);
     }
-    free((*v).u.object.keys as *mut libc::c_void);
-    free((*v).u.object.values as *mut libc::c_void);
-    free(v as *mut libc::c_void);
+    libc::free((*v).u.object.keys as *mut libc::c_void);
+    libc::free((*v).u.object.values as *mut libc::c_void);
+    libc::free(v as *mut libc::c_void);
 }
 unsafe extern "C" fn yajl_array_free(mut v: yajl_val) {
     let mut i: size_t = 0;
@@ -221,12 +219,12 @@ unsafe extern "C" fn yajl_array_free(mut v: yajl_val) {
         *fresh2 = 0 as yajl_val;
         i = i.wrapping_add(1);
     }
-    free((*v).u.array.values as *mut libc::c_void);
-    free(v as *mut libc::c_void);
+    libc::free((*v).u.array.values as *mut libc::c_void);
+    libc::free(v as *mut libc::c_void);
 }
 unsafe extern "C" fn context_push(mut ctx: *mut context_t, mut v: yajl_val) -> libc::c_int {
     let mut stack: *mut stack_elem_t = 0 as *mut stack_elem_t;
-    stack = malloc(::core::mem::size_of::<stack_elem_t>() as libc::c_ulong) as *mut stack_elem_t;
+    stack = libc::malloc(::core::mem::size_of::<stack_elem_t>()) as *mut stack_elem_t;
     if stack.is_null() {
         if !((*ctx).errbuf).is_null() {
             snprintf(
@@ -240,7 +238,7 @@ unsafe extern "C" fn context_push(mut ctx: *mut context_t, mut v: yajl_val) -> l
     memset(
         stack as *mut libc::c_void,
         0 as libc::c_int,
-        ::core::mem::size_of::<stack_elem_t>() as libc::c_ulong,
+        ::core::mem::size_of::<stack_elem_t>() as usize,
     );
     (*stack).value = v;
     (*stack).next = (*ctx).stack;
@@ -264,7 +262,7 @@ unsafe extern "C" fn context_pop(mut ctx: *mut context_t) -> yajl_val {
     stack = (*ctx).stack;
     (*ctx).stack = (*stack).next;
     v = (*stack).value;
-    free(stack as *mut libc::c_void);
+    libc::free(stack as *mut libc::c_void);
     return v;
 }
 unsafe extern "C" fn object_add_keyval(
@@ -275,10 +273,10 @@ unsafe extern "C" fn object_add_keyval(
 ) -> libc::c_int {
     let mut tmpk: *mut *const libc::c_char = 0 as *mut *const libc::c_char;
     let mut tmpv: *mut yajl_val = 0 as *mut yajl_val;
-    tmpk = realloc(
+    tmpk = libc::realloc(
         (*obj).u.object.keys as *mut libc::c_void,
-        (::core::mem::size_of::<*const libc::c_char>() as libc::c_ulong)
-            .wrapping_mul(((*obj).u.object.len).wrapping_add(1 as libc::c_int as libc::c_ulong)),
+        (::core::mem::size_of::<*const libc::c_char>())
+            .wrapping_mul(((*obj).u.object.len).wrapping_add(1)),
     ) as *mut *const libc::c_char;
     if tmpk.is_null() {
         if !((*ctx).errbuf).is_null() {
@@ -291,10 +289,9 @@ unsafe extern "C" fn object_add_keyval(
         return 12 as libc::c_int;
     }
     (*obj).u.object.keys = tmpk;
-    tmpv = realloc(
+    tmpv = libc::realloc(
         (*obj).u.object.values as *mut libc::c_void,
-        (::core::mem::size_of::<yajl_val>() as libc::c_ulong)
-            .wrapping_mul(((*obj).u.object.len).wrapping_add(1 as libc::c_int as libc::c_ulong)),
+        (::core::mem::size_of::<yajl_val>()).wrapping_mul(((*obj).u.object.len).wrapping_add(1)),
     ) as *mut yajl_val;
     if tmpv.is_null() {
         if !((*ctx).errbuf).is_null() {
@@ -320,10 +317,9 @@ unsafe extern "C" fn array_add_value(
     mut value: yajl_val,
 ) -> libc::c_int {
     let mut tmp: *mut yajl_val = 0 as *mut yajl_val;
-    tmp = realloc(
+    tmp = libc::realloc(
         (*array).u.array.values as *mut libc::c_void,
-        (::core::mem::size_of::<yajl_val>() as libc::c_ulong)
-            .wrapping_mul(((*array).u.array.len).wrapping_add(1 as libc::c_int as libc::c_ulong)),
+        (::core::mem::size_of::<yajl_val>()).wrapping_mul(((*array).u.array.len).wrapping_add(1)),
     ) as *mut yajl_val;
     if tmp.is_null() {
         if !((*ctx).errbuf).is_null() {
@@ -366,7 +362,7 @@ unsafe extern "C" fn context_add_value(mut ctx: *mut context_t, mut v: yajl_val)
             }
             (*(*ctx).stack).key = (*v).u.string;
             (*v).u.string = 0 as *mut libc::c_char;
-            free(v as *mut libc::c_void);
+            libc::free(v as *mut libc::c_void);
             return 0 as libc::c_int;
         } else {
             let mut key: *mut libc::c_char = 0 as *mut libc::c_char;
@@ -409,10 +405,9 @@ unsafe extern "C" fn handle_string(
         }
         return 0 as libc::c_int;
     }
-    (*v).u.string =
-        malloc(string_length.wrapping_add(1 as libc::c_int as libc::c_ulong)) as *mut libc::c_char;
+    (*v).u.string = libc::malloc(string_length.wrapping_add(1)) as *mut libc::c_char;
     if ((*v).u.string).is_null() {
-        free(v as *mut libc::c_void);
+        libc::free(v as *mut libc::c_void);
         if !((*(ctx as *mut context_t)).errbuf).is_null() {
             snprintf(
                 (*(ctx as *mut context_t)).errbuf,
@@ -452,10 +447,9 @@ unsafe extern "C" fn handle_number(
         }
         return 0 as libc::c_int;
     }
-    (*v).u.number.r =
-        malloc(string_length.wrapping_add(1 as libc::c_int as libc::c_ulong)) as *mut libc::c_char;
+    (*v).u.number.r = libc::malloc(string_length.wrapping_add(1)) as *mut libc::c_char;
     if ((*v).u.number.r).is_null() {
-        free(v as *mut libc::c_void);
+        libc::free(v as *mut libc::c_void);
         if !((*(ctx as *mut context_t)).errbuf).is_null() {
             snprintf(
                 (*(ctx as *mut context_t)).errbuf,
@@ -689,7 +683,7 @@ pub unsafe extern "C" fn yajl_tree_parse(
         );
     }
     handle = yajl_alloc(
-        &callbacks,
+        addr_of!(callbacks),
         0 as *mut yajl_alloc_funcs,
         &mut ctx as *mut context_t as *mut libc::c_void,
     );
@@ -697,7 +691,7 @@ pub unsafe extern "C" fn yajl_tree_parse(
     status = yajl_parse(handle, input as *mut libc::c_uchar, strlen(input));
     status = yajl_complete_parse(handle);
     if status as libc::c_uint != yajl_status_ok as libc::c_int as libc::c_uint {
-        if !error_buffer.is_null() && error_buffer_size > 0 as libc::c_int as libc::c_ulong {
+        if !error_buffer.is_null() && error_buffer_size > 0 as libc::c_int as usize {
             internal_err_str = yajl_get_error(
                 handle,
                 1 as libc::c_int,
@@ -739,8 +733,8 @@ pub unsafe extern "C" fn yajl_tree_get(
         len = (*n).u.object.len;
         i = 0 as libc::c_int as size_t;
         while i < len {
-            if strcmp(*path, *((*n).u.object.keys).offset(i as isize)) == 0 {
-                n = *((*n).u.object.values).offset(i as isize);
+            if strcmp(*path, *((*n).u.object.keys).add(i)) == 0 {
+                n = *((*n).u.object.values).add(i);
                 break;
             } else {
                 i = i.wrapping_add(1);
@@ -765,19 +759,19 @@ pub unsafe extern "C" fn yajl_tree_free(mut v: yajl_val) {
         return;
     }
     if !v.is_null() && (*v).type_0 as libc::c_uint == yajl_t_string as libc::c_int as libc::c_uint {
-        free((*v).u.string as *mut libc::c_void);
-        free(v as *mut libc::c_void);
+        libc::free((*v).u.string as *mut libc::c_void);
+        libc::free(v as *mut libc::c_void);
     } else if !v.is_null()
         && (*v).type_0 as libc::c_uint == yajl_t_number as libc::c_int as libc::c_uint
     {
-        free((*v).u.number.r as *mut libc::c_void);
-        free(v as *mut libc::c_void);
+        libc::free((*v).u.number.r as *mut libc::c_void);
+        libc::free(v as *mut libc::c_void);
     } else if !if !v.is_null()
         && (*v).type_0 as libc::c_uint == yajl_t_object as libc::c_int as libc::c_uint
     {
         &mut (*v).u.object as *mut C2RustUnnamed_1
     } else {
-        0 as *mut C2RustUnnamed_1
+        null_mut::<C2RustUnnamed_1>()
     }
     .is_null()
     {
@@ -787,12 +781,12 @@ pub unsafe extern "C" fn yajl_tree_free(mut v: yajl_val) {
     {
         &mut (*v).u.array as *mut C2RustUnnamed_0
     } else {
-        0 as *mut C2RustUnnamed_0
+        null_mut::<C2RustUnnamed_0>()
     }
     .is_null()
     {
         yajl_array_free(v);
     } else {
-        free(v as *mut libc::c_void);
+        libc::free(v as *mut libc::c_void);
     };
 }

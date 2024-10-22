@@ -7,19 +7,19 @@ extern "C" {
     // pub type yajl_buf_t;
     fn yajl_buf_alloc(alloc: *mut yajl_alloc_funcs) -> yajl_buf;
     fn yajl_buf_free(buf: yajl_buf);
-    fn yajl_buf_append(buf: yajl_buf, data: *const libc::c_void, len: libc::size_t);
+    fn yajl_buf_append(buf: yajl_buf, data: *const libc::c_void, len: usize);
     fn yajl_buf_clear(buf: yajl_buf);
     fn yajl_buf_data(buf: yajl_buf) -> *const libc::c_uchar;
-    fn yajl_buf_len(buf: yajl_buf) -> libc::size_t;
-    fn yajl_buf_truncate(buf: yajl_buf, len: libc::size_t);
-    fn memset(_: *mut libc::c_void, _: libc::c_int, _: libc::c_ulong) -> *mut libc::c_void;
+    fn yajl_buf_len(buf: yajl_buf) -> usize;
+    fn yajl_buf_truncate(buf: yajl_buf, len: usize);
+    fn memset(_: *mut libc::c_void, _: libc::c_int, _: usize) -> *mut libc::c_void;
 }
-// pub type libc::size_t = libc::c_ulong;
+// pub type usize = usize;
 // pub type yajl_malloc_func =
-//     Option<unsafe extern "C" fn(*mut libc::c_void, libc::size_t) -> *mut libc::c_void>;
+//     Option<unsafe extern "C" fn(*mut libc::c_void, usize) -> *mut libc::c_void>;
 // pub type yajl_free_func = Option<unsafe extern "C" fn(*mut libc::c_void, *mut libc::c_void) -> ()>;
 // pub type yajl_realloc_func =
-//     Option<unsafe extern "C" fn(*mut libc::c_void, *mut libc::c_void, libc::size_t) -> *mut libc::c_void>;
+//     Option<unsafe extern "C" fn(*mut libc::c_void, *mut libc::c_void, usize) -> *mut libc::c_void>;
 // #[derive(Copy, Clone)]
 // #[repr(C)]
 // pub struct yajl_alloc_funcs {
@@ -47,11 +47,11 @@ pub const yajl_tok_bool: yajl_tok = 0;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct yajl_lexer_t {
-    pub lineOff: libc::size_t,
-    pub charOff: libc::size_t,
+    pub lineOff: usize,
+    pub charOff: usize,
     pub error: yajl_lex_error,
     pub buf: yajl_buf,
-    pub bufOff: libc::size_t,
+    pub bufOff: usize,
     pub bufInUse: libc::c_uint,
     pub allowComments: libc::c_uint,
     pub validateUTF8: libc::c_uint,
@@ -84,7 +84,7 @@ pub unsafe extern "C" fn yajl_lex_alloc(
     memset(
         lxr as *mut libc::c_void,
         0 as libc::c_int,
-        ::core::mem::size_of::<yajl_lexer_t>() as libc::c_ulong,
+        ::core::mem::size_of::<yajl_lexer_t>() as usize,
     );
     (*lxr).buf = yajl_buf_alloc(alloc);
     (*lxr).allowComments = allowComments;
@@ -361,8 +361,8 @@ static mut charLookupTable: [libc::c_char; 256] = [
 unsafe extern "C" fn yajl_lex_utf8_char(
     mut lexer: yajl_lexer,
     mut jsonText: *const libc::c_uchar,
-    mut jsonTextLen: libc::size_t,
-    mut offset: *mut libc::size_t,
+    mut jsonTextLen: usize,
+    mut offset: *mut usize,
     mut curChar: libc::c_uchar,
 ) -> yajl_tok {
     if curChar as libc::c_int <= 0x7f as libc::c_int {
@@ -482,9 +482,9 @@ unsafe extern "C" fn yajl_lex_utf8_char(
 }
 unsafe extern "C" fn yajl_string_scan(
     mut buf: *const libc::c_uchar,
-    mut len: libc::size_t,
+    mut len: usize,
     mut utf8check: libc::c_int,
-) -> libc::size_t {
+) -> usize {
     let mut mask: libc::c_uchar = (0x2 as libc::c_int
         | 0x8 as libc::c_int
         | (if utf8check != 0 {
@@ -492,7 +492,7 @@ unsafe extern "C" fn yajl_string_scan(
         } else {
             0 as libc::c_int
         })) as libc::c_uchar;
-    let mut skip: libc::size_t = 0 as libc::c_int as libc::size_t;
+    let mut skip: usize = 0 as libc::c_int as usize;
     while skip < len && charLookupTable[*buf as usize] as libc::c_int & mask as libc::c_int == 0 {
         skip = skip.wrapping_add(1);
         buf = buf.offset(1);
@@ -502,15 +502,15 @@ unsafe extern "C" fn yajl_string_scan(
 unsafe extern "C" fn yajl_lex_string(
     mut lexer: yajl_lexer,
     mut jsonText: *const libc::c_uchar,
-    mut jsonTextLen: libc::size_t,
-    mut offset: *mut libc::size_t,
+    mut jsonTextLen: usize,
+    mut offset: *mut usize,
 ) -> yajl_tok {
     let mut tok: yajl_tok = yajl_tok_error;
     let mut hasEscapes: libc::c_int = 0 as libc::c_int;
     's_10: loop {
         let mut curChar: libc::c_uchar = 0;
         let mut p: *const libc::c_uchar = 0 as *const libc::c_uchar;
-        let mut len: libc::size_t = 0;
+        let mut len: usize = 0;
         if (*lexer).bufInUse != 0
             && yajl_buf_len((*lexer).buf) != 0
             && (*lexer).bufOff < yajl_buf_len((*lexer).buf)
@@ -521,7 +521,7 @@ unsafe extern "C" fn yajl_lex_string(
                 p,
                 len,
                 (*lexer).validateUTF8 as libc::c_int,
-            )) as libc::size_t as libc::size_t;
+            )) as usize as usize;
         } else if *offset < jsonTextLen {
             p = jsonText.offset(*offset as isize);
             len = jsonTextLen.wrapping_sub(*offset);
@@ -529,7 +529,7 @@ unsafe extern "C" fn yajl_lex_string(
                 p,
                 len,
                 (*lexer).validateUTF8 as libc::c_int,
-            )) as libc::size_t as libc::size_t;
+            )) as usize as usize;
         }
         if *offset >= jsonTextLen {
             tok = yajl_tok_eof;
@@ -655,8 +655,8 @@ unsafe extern "C" fn yajl_lex_string(
 unsafe extern "C" fn yajl_lex_number(
     mut lexer: yajl_lexer,
     mut jsonText: *const libc::c_uchar,
-    mut jsonTextLen: libc::size_t,
-    mut offset: *mut libc::size_t,
+    mut jsonTextLen: usize,
+    mut offset: *mut usize,
 ) -> yajl_tok {
     let mut c: libc::c_uchar = 0;
     let mut tok: yajl_tok = yajl_tok_integer;
@@ -859,8 +859,8 @@ unsafe extern "C" fn yajl_lex_number(
 unsafe extern "C" fn yajl_lex_comment(
     mut lexer: yajl_lexer,
     mut jsonText: *const libc::c_uchar,
-    mut jsonTextLen: libc::size_t,
-    mut offset: *mut libc::size_t,
+    mut jsonTextLen: usize,
+    mut offset: *mut usize,
 ) -> yajl_tok {
     let mut c: libc::c_uchar = 0;
     let mut tok: yajl_tok = yajl_tok_comment;
@@ -954,16 +954,16 @@ unsafe extern "C" fn yajl_lex_comment(
 pub unsafe extern "C" fn yajl_lex_lex(
     mut lexer: yajl_lexer,
     mut jsonText: *const libc::c_uchar,
-    mut jsonTextLen: libc::size_t,
-    mut offset: *mut libc::size_t,
+    mut jsonTextLen: usize,
+    mut offset: *mut usize,
     mut outBuf: *mut *const libc::c_uchar,
-    mut outLen: *mut libc::size_t,
+    mut outLen: *mut usize,
 ) -> yajl_tok {
     let mut tok: yajl_tok = yajl_tok_error;
     let mut c: libc::c_uchar = 0;
-    let mut startOffset: libc::size_t = *offset;
+    let mut startOffset: usize = *offset;
     *outBuf = 0 as *const libc::c_uchar;
-    *outLen = 0 as libc::c_int as libc::size_t;
+    *outLen = 0 as libc::c_int as usize;
     's_21: loop {
         if *offset >= jsonTextLen {
             tok = yajl_tok_eof;
@@ -1186,7 +1186,7 @@ pub unsafe extern "C" fn yajl_lex_lex(
             jsonText.offset(startOffset as isize) as *const libc::c_void,
             (*offset).wrapping_sub(startOffset),
         );
-        (*lexer).bufOff = 0 as libc::c_int as libc::size_t;
+        (*lexer).bufOff = 0 as libc::c_int as usize;
         if tok as libc::c_uint != yajl_tok_eof as libc::c_int as libc::c_uint {
             *outBuf = yajl_buf_data((*lexer).buf);
             *outLen = yajl_buf_len((*lexer).buf);
@@ -1200,8 +1200,7 @@ pub unsafe extern "C" fn yajl_lex_lex(
         || tok as libc::c_uint == yajl_tok_string_with_escapes as libc::c_int as libc::c_uint
     {
         *outBuf = (*outBuf).offset(1);
-        *outLen = (*outLen as libc::c_ulong).wrapping_sub(2 as libc::c_int as libc::c_ulong)
-            as libc::size_t as libc::size_t;
+        *outLen = (*outLen as usize).wrapping_sub(2 as libc::c_int as usize) as usize as usize;
     }
     return tok;
 }
@@ -1255,24 +1254,24 @@ pub unsafe extern "C" fn yajl_lex_get_error(mut lexer: yajl_lexer) -> yajl_lex_e
     return (*lexer).error;
 }
 #[no_mangle]
-pub unsafe extern "C" fn yajl_lex_current_line(mut lexer: yajl_lexer) -> libc::size_t {
+pub unsafe extern "C" fn yajl_lex_current_line(mut lexer: yajl_lexer) -> usize {
     return (*lexer).lineOff;
 }
 #[no_mangle]
-pub unsafe extern "C" fn yajl_lex_current_char(mut lexer: yajl_lexer) -> libc::size_t {
+pub unsafe extern "C" fn yajl_lex_current_char(mut lexer: yajl_lexer) -> usize {
     return (*lexer).charOff;
 }
 #[no_mangle]
 pub unsafe extern "C" fn yajl_lex_peek(
     mut lexer: yajl_lexer,
     mut jsonText: *const libc::c_uchar,
-    mut jsonTextLen: libc::size_t,
-    mut offset: libc::size_t,
+    mut jsonTextLen: usize,
+    mut offset: usize,
 ) -> yajl_tok {
     let mut outBuf: *const libc::c_uchar = 0 as *const libc::c_uchar;
-    let mut outLen: libc::size_t = 0;
-    let mut bufLen: libc::size_t = yajl_buf_len((*lexer).buf);
-    let mut bufOff: libc::size_t = (*lexer).bufOff;
+    let mut outLen: usize = 0;
+    let mut bufLen: usize = yajl_buf_len((*lexer).buf);
+    let mut bufOff: usize = (*lexer).bufOff;
     let mut bufInUse: libc::c_uint = (*lexer).bufInUse;
     let mut tok: yajl_tok = yajl_tok_bool;
     tok = yajl_lex_lex(
