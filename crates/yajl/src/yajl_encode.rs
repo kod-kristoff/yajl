@@ -4,9 +4,9 @@ use crate::yajl_buf::yajl_buf_t;
 extern "C" {
     // pub type yajl_buf_t;
     fn yajl_buf_append(buf: yajl_buf, data: *const libc::c_void, len: size_t);
-    fn strlen(_: *const libc::c_char) -> libc::c_ulong;
+    fn strlen(_: *const libc::c_char) -> usize;
 }
-pub type size_t = libc::c_ulong;
+pub type size_t = usize;
 pub type yajl_buf = *mut yajl_buf_t;
 pub type yajl_print_t =
     Option<unsafe extern "C" fn(*mut libc::c_void, *const libc::c_char, size_t) -> ()>;
@@ -196,20 +196,18 @@ pub unsafe extern "C" fn yajl_string_decode(
                     let mut codepoint: libc::c_uint = 0 as libc::c_int as libc::c_uint;
                     end = end.wrapping_add(1);
                     hexToDigit(&mut codepoint, str.offset(end as isize));
-                    end = (end as libc::c_ulong).wrapping_add(3 as libc::c_int as libc::c_ulong)
-                        as size_t as size_t;
+                    end =
+                        (end as usize).wrapping_add(3 as libc::c_int as usize) as size_t as size_t;
                     if codepoint & 0xfc00 as libc::c_int as libc::c_uint
                         == 0xd800 as libc::c_int as libc::c_uint
                     {
                         end = end.wrapping_add(1);
                         if *str.offset(end as isize) as libc::c_int == '\\' as i32
-                            && *str
-                                .offset(
-                                    end.wrapping_add(1 as libc::c_int as libc::c_ulong) as isize,
-                                ) as libc::c_int == 'u' as i32
+                            && *str.offset(end.wrapping_add(1 as libc::c_int as usize) as isize)
+                                as libc::c_int
+                                == 'u' as i32
                         {
-                            let mut surrogate: libc::c_uint = 0 as libc::c_int
-                                as libc::c_uint;
+                            let mut surrogate: libc::c_uint = 0 as libc::c_int as libc::c_uint;
                             hexToDigit(
                                 &mut surrogate,
                                 str.offset(end as isize).offset(2 as libc::c_int as isize),
@@ -221,8 +219,7 @@ pub unsafe extern "C" fn yajl_string_decode(
                                     .wrapping_add(1 as libc::c_int as libc::c_uint)
                                     << 16 as libc::c_int
                                 | surrogate & 0x3ff as libc::c_int as libc::c_uint;
-                            end = (end as libc::c_ulong)
-                                .wrapping_add(5 as libc::c_int as libc::c_ulong) as size_t
+                            end = (end as usize).wrapping_add(5 as libc::c_int as usize) as size_t
                                 as size_t;
                             current_block_25 = 13472856163611868459;
                         } else {

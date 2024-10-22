@@ -4,7 +4,7 @@ use crate::{
     yajl_buf::yajl_buf_t,
     yajl_lex::yajl_lexer_t,
     yajl_option::{yajl_allow_comments, yajl_dont_validate_strings, yajl_option},
-    yajl_status::{yajl_status, yajl_status_client_canceled, yajl_status_error, yajl_status_ok},
+    yajl_status::{yajl_status, yajl_status_ok},
 };
 extern "C" {
     // pub type yajl_buf_t;
@@ -30,7 +30,7 @@ extern "C" {
     fn yajl_buf_free(buf: yajl_buf);
     fn yajl_set_default_alloc_funcs(yaf: *mut yajl_alloc_funcs);
     fn yajl_buf_alloc(alloc: *mut yajl_alloc_funcs) -> yajl_buf;
-    fn memcpy(_: *mut libc::c_void, _: *const libc::c_void, _: libc::c_ulong) -> *mut libc::c_void;
+    fn memcpy(_: *mut libc::c_void, _: *const libc::c_void, _: usize) -> *mut libc::c_void;
 }
 pub type __builtin_va_list = [__va_list_tag; 1];
 #[derive(Copy, Clone)]
@@ -41,7 +41,7 @@ pub struct __va_list_tag {
     pub overflow_arg_area: *mut libc::c_void,
     pub reg_save_area: *mut libc::c_void,
 }
-pub type size_t = libc::c_ulong;
+pub type size_t = usize;
 pub type yajl_malloc_func =
     Option<unsafe extern "C" fn(*mut libc::c_void, size_t) -> *mut libc::c_void>;
 pub type yajl_free_func = Option<unsafe extern "C" fn(*mut libc::c_void, *mut libc::c_void) -> ()>;

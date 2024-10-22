@@ -18,11 +18,11 @@ extern "C" {
         escape_solidus: libc::c_int,
     );
     fn yajl_string_validate_utf8(s: *const libc::c_uchar, len: size_t) -> libc::c_int;
-    fn memcpy(_: *mut libc::c_void, _: *const libc::c_void, _: libc::c_ulong) -> *mut libc::c_void;
-    fn memset(_: *mut libc::c_void, _: libc::c_int, _: libc::c_ulong) -> *mut libc::c_void;
+    fn memcpy(_: *mut libc::c_void, _: *const libc::c_void, _: usize) -> *mut libc::c_void;
+    fn memset(_: *mut libc::c_void, _: libc::c_int, _: usize) -> *mut libc::c_void;
     fn strcat(_: *mut libc::c_char, _: *const libc::c_char) -> *mut libc::c_char;
-    fn strspn(_: *const libc::c_char, _: *const libc::c_char) -> libc::c_ulong;
-    fn strlen(_: *const libc::c_char) -> libc::c_ulong;
+    fn strspn(_: *const libc::c_char, _: *const libc::c_char) -> usize;
+    fn strlen(_: *const libc::c_char) -> usize;
     fn sprintf(_: *mut libc::c_char, _: *const libc::c_char, _: ...) -> libc::c_int;
 }
 pub type __builtin_va_list = [__va_list_tag; 1];
@@ -34,7 +34,7 @@ pub struct __va_list_tag {
     pub overflow_arg_area: *mut libc::c_void,
     pub reg_save_area: *mut libc::c_void,
 }
-pub type size_t = libc::c_ulong;
+pub type size_t = usize;
 pub type yajl_malloc_func =
     Option<unsafe extern "C" fn(*mut libc::c_void, size_t) -> *mut libc::c_void>;
 pub type yajl_free_func = Option<unsafe extern "C" fn(*mut libc::c_void, *mut libc::c_void) -> ()>;
@@ -157,7 +157,7 @@ pub unsafe extern "C" fn yajl_gen_alloc(mut afs: *const yajl_alloc_funcs) -> yaj
     }
     g = ((*afs).malloc).expect("non-null function pointer")(
         (*afs).ctx,
-        ::core::mem::size_of::<yajl_gen_t>() as libc::c_ulong,
+        ::core::mem::size_of::<yajl_gen_t>() as usize,
     ) as yajl_gen;
     if g.is_null() {
         return 0 as yajl_gen;
@@ -165,12 +165,12 @@ pub unsafe extern "C" fn yajl_gen_alloc(mut afs: *const yajl_alloc_funcs) -> yaj
     memset(
         g as *mut libc::c_void,
         0 as libc::c_int,
-        ::core::mem::size_of::<yajl_gen_t>() as libc::c_ulong,
+        ::core::mem::size_of::<yajl_gen_t>() as usize,
     );
     memcpy(
         &mut (*g).alloc as *mut yajl_alloc_funcs as *mut libc::c_void,
         afs as *mut libc::c_void,
-        ::core::mem::size_of::<yajl_alloc_funcs>() as libc::c_ulong,
+        ::core::mem::size_of::<yajl_alloc_funcs>() as usize,
     );
     (*g).print = ::core::mem::transmute::<
         Option<unsafe extern "C" fn(yajl_buf, *const libc::c_void, size_t) -> ()>,
@@ -188,7 +188,7 @@ pub unsafe extern "C" fn yajl_gen_reset(mut g: yajl_gen, mut sep: *const libc::c
     memset(
         &mut (*g).state as *mut [yajl_gen_state; 128] as *mut libc::c_void,
         0 as libc::c_int,
-        ::core::mem::size_of::<[yajl_gen_state; 128]>() as libc::c_ulong,
+        ::core::mem::size_of::<[yajl_gen_state; 128]>() as usize,
     );
     if !sep.is_null() {
         ((*g).print).expect("non-null function pointer")((*g).ctx, sep, strlen(sep));

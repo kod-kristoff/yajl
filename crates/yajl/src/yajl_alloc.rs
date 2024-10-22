@@ -1,6 +1,6 @@
 use ::libc;
 
-pub type size_t = libc::size_t;
+pub type size_t = usize;
 pub type yajl_malloc_func =
     Option<unsafe extern "C" fn(*mut libc::c_void, size_t) -> *mut libc::c_void>;
 pub type yajl_free_func = Option<unsafe extern "C" fn(*mut libc::c_void, *mut libc::c_void) -> ()>;
