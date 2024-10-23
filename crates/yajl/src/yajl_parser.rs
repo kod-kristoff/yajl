@@ -131,7 +131,6 @@ impl yajl_handle_t {
     }
 
     #[cfg(feature = "nightly")]
-
     pub unsafe extern "C" fn config(
         mut h: yajl_handle,
         mut opt: yajl_option,
@@ -155,7 +154,6 @@ impl yajl_handle_t {
         return rv;
     }
     #[cfg(not(feature = "nightly"))]
-
     pub extern "C" fn config(
         &mut self,
         // mut h: yajl_handle,
