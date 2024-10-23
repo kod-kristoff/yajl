@@ -11,4 +11,4 @@ rust-version = "1.74.0"
 yajl = { path = "crates/yajl" }
 
 # external crates
-libc = "0.2"
+libc = "0.2.161"
