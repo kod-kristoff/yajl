@@ -3,35 +3,20 @@ use ::libc;
 
 use crate::{
     yajl_alloc::{yajl_alloc_funcs, yajl_set_default_alloc_funcs},
-    yajl_buf::{yajl_buf_alloc, yajl_buf_free, yajl_buf_t},
-    yajl_lex::{yajl_lex_free, yajl_lexer_t},
+    yajl_buf::{
+        yajl_buf_alloc, yajl_buf_append, yajl_buf_clear, yajl_buf_data, yajl_buf_free,
+        yajl_buf_len, yajl_buf_t,
+    },
+    yajl_encode::yajl_string_decode,
+    yajl_lex::{
+        yajl_lex_error_to_string, yajl_lex_free, yajl_lex_get_error, yajl_lex_lex, yajl_lexer_t,
+    },
     yajl_option::yajl_option,
 };
 extern "C" {
-    // pub type yajl_buf_t;
-    // pub type yajl_lexer_t;
-    fn yajl_lex_lex(
-        lexer: yajl_lexer,
-        jsonText: *const libc::c_uchar,
-        jsonTextLen: usize,
-        offset: *mut usize,
-        outBuf: *mut *const libc::c_uchar,
-        outLen: *mut usize,
-    ) -> yajl_tok;
-    fn yajl_lex_error_to_string(error: yajl_lex_error) -> *const libc::c_char;
-    fn yajl_lex_get_error(lexer: yajl_lexer) -> yajl_lex_error;
-    fn yajl_buf_append(buf: yajl_buf, data: *const libc::c_void, len: usize);
-    fn yajl_buf_clear(buf: yajl_buf);
-    fn yajl_buf_data(buf: yajl_buf) -> *const libc::c_uchar;
-    fn yajl_buf_len(buf: yajl_buf) -> usize;
-    fn yajl_string_decode(buf: yajl_buf, str: *const libc::c_uchar, length: usize);
-    fn strtod(_: *const libc::c_char, _: *mut *mut libc::c_char) -> libc::c_double;
-    fn abort() -> !;
+
     #[cfg_attr(target_os = "android", link_name = "__errno")]
     fn __errno_location() -> *mut libc::c_int;
-    fn strcat(_: *mut libc::c_char, _: *const libc::c_char) -> *mut libc::c_char;
-    fn strlen(_: *const libc::c_char) -> usize;
-    fn memcpy(_: *mut libc::c_void, _: *const libc::c_void, _: usize) -> *mut libc::c_void;
 }
 // pub type usize = usize;
 
@@ -93,7 +78,7 @@ impl yajl_handle_t {
             (*afs).ctx,
             ::core::mem::size_of::<yajl_handle_t>(),
         ) as yajl_handle;
-        memcpy(
+        libc::memcpy(
             &mut (*hand).alloc as *mut yajl_alloc_funcs as *mut libc::c_void,
             afs as *mut libc::c_void,
             ::core::mem::size_of::<yajl_alloc_funcs>(),
@@ -146,7 +131,7 @@ impl yajl_handle_t {
     }
 
     #[cfg(feature = "nightly")]
-    #[no_mangle]
+
     pub unsafe extern "C" fn config(
         mut h: yajl_handle,
         mut opt: yajl_option,
@@ -170,7 +155,7 @@ impl yajl_handle_t {
         return rv;
     }
     #[cfg(not(feature = "nightly"))]
-    #[no_mangle]
+
     pub extern "C" fn config(
         &mut self,
         // mut h: yajl_handle,
@@ -272,7 +257,7 @@ pub const yajl_state_lexical_error: yajl_state = 3;
 pub const yajl_state_parse_error: yajl_state = 2;
 pub const yajl_state_parse_complete: yajl_state = 1;
 pub const yajl_state_start: yajl_state = 0;
-#[no_mangle]
+
 pub unsafe extern "C" fn yajl_parse_integer(
     mut number: *const libc::c_uchar,
     mut length: libc::c_uint,
@@ -324,7 +309,7 @@ pub unsafe extern "C" fn yajl_parse_integer(
     }
     sign as libc::c_longlong * ret
 }
-#[no_mangle]
+
 pub unsafe extern "C" fn yajl_render_error_string(
     mut hand: yajl_handle,
     mut jsonText: *const libc::c_uchar,
@@ -356,11 +341,14 @@ pub unsafe extern "C" fn yajl_render_error_string(
         errorType = b"unknown\0" as *const u8 as *const libc::c_char;
     }
     let mut memneeded: usize = 0;
-    memneeded = (memneeded).wrapping_add(strlen(errorType));
-    memneeded = (memneeded).wrapping_add(strlen(b" error\0" as *const u8 as *const libc::c_char));
+    memneeded = (memneeded).wrapping_add(libc::strlen(errorType));
+    memneeded = (memneeded).wrapping_add(libc::strlen(
+        b" error\0" as *const u8 as *const libc::c_char,
+    ));
     if !errorText.is_null() {
-        memneeded = memneeded.wrapping_add(strlen(b": \0" as *const u8 as *const libc::c_char));
-        memneeded = memneeded.wrapping_add(strlen(errorText));
+        memneeded =
+            memneeded.wrapping_add(libc::strlen(b": \0" as *const u8 as *const libc::c_char));
+        memneeded = memneeded.wrapping_add(libc::strlen(errorText));
     }
     str = ((*hand).alloc.malloc).expect("non-null function pointer")(
         (*hand).alloc.ctx,
@@ -370,19 +358,19 @@ pub unsafe extern "C" fn yajl_render_error_string(
         return std::ptr::null_mut::<libc::c_uchar>();
     }
     *str.offset(0 as libc::c_int as isize) = 0 as libc::c_int as libc::c_uchar;
-    strcat(str as *mut libc::c_char, errorType);
-    strcat(
+    libc::strcat(str as *mut libc::c_char, errorType);
+    libc::strcat(
         str as *mut libc::c_char,
         b" error\0" as *const u8 as *const libc::c_char,
     );
     if !errorText.is_null() {
-        strcat(
+        libc::strcat(
             str as *mut libc::c_char,
             b": \0" as *const u8 as *const libc::c_char,
         );
-        strcat(str as *mut libc::c_char, errorText);
+        libc::strcat(str as *mut libc::c_char, errorText);
     }
-    strcat(
+    libc::strcat(
         str as *mut libc::c_char,
         b"\n\0" as *const u8 as *const libc::c_char,
     );
@@ -429,16 +417,16 @@ pub unsafe extern "C" fn yajl_render_error_string(
         let mut newStr: *mut libc::c_char = ((*hand).alloc.malloc)
             .expect("non-null function pointer")(
             (*hand).alloc.ctx,
-            (strlen(str as *mut libc::c_char))
-                .wrapping_add(strlen(text.as_mut_ptr()))
-                .wrapping_add(strlen(arrow))
+            (libc::strlen(str as *mut libc::c_char))
+                .wrapping_add(libc::strlen(text.as_mut_ptr()))
+                .wrapping_add(libc::strlen(arrow))
                 .wrapping_add(1),
         ) as *mut libc::c_char;
         if !newStr.is_null() {
             *newStr.offset(0 as libc::c_int as isize) = 0 as libc::c_int as libc::c_char;
-            strcat(newStr, str as *mut libc::c_char);
-            strcat(newStr, text.as_mut_ptr());
-            strcat(newStr, arrow);
+            libc::strcat(newStr, str as *mut libc::c_char);
+            libc::strcat(newStr, text.as_mut_ptr());
+            libc::strcat(newStr, arrow);
         }
         ((*hand).alloc.free).expect("non-null function pointer")(
             (*hand).alloc.ctx,
@@ -448,7 +436,7 @@ pub unsafe extern "C" fn yajl_render_error_string(
     }
     str
 }
-#[no_mangle]
+
 pub unsafe extern "C" fn yajl_do_finish(mut hand: yajl_handle) -> yajl_status {
     let mut stat: yajl_status = yajl_status_ok;
     stat = yajl_do_parse(
@@ -477,7 +465,7 @@ pub unsafe extern "C" fn yajl_do_finish(mut hand: yajl_handle) -> yajl_status {
         }
     }
 }
-#[no_mangle]
+
 pub unsafe extern "C" fn yajl_do_parse(
     mut hand: yajl_handle,
     mut jsonText: *const libc::c_uchar,
@@ -755,7 +743,7 @@ pub unsafe extern "C" fn yajl_do_parse(
                                 );
                                 buf = yajl_buf_data((*hand).decodeBuf);
                                 *__errno_location() = 0 as libc::c_int;
-                                d = strtod(
+                                d = libc::strtod(
                                     buf as *mut libc::c_char,
                                     std::ptr::null_mut::<*mut libc::c_char>(),
                                 );
@@ -1120,7 +1108,7 @@ pub unsafe extern "C" fn yajl_do_parse(
                 }
             }
             _ => {
-                abort();
+                libc::abort();
             }
         }
     }

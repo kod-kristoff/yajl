@@ -3,31 +3,14 @@ use ::libc;
 use crate::yajl_alloc::yajl_alloc_funcs;
 use crate::yajl_buf::yajl_buf_t;
 
-extern "C" {
-    // pub type yajl_buf_t;
-    fn yajl_buf_alloc(alloc: *mut yajl_alloc_funcs) -> yajl_buf;
-    fn yajl_buf_free(buf: yajl_buf);
-    fn yajl_buf_append(buf: yajl_buf, data: *const libc::c_void, len: usize);
-    fn yajl_buf_clear(buf: yajl_buf);
-    fn yajl_buf_data(buf: yajl_buf) -> *const libc::c_uchar;
-    fn yajl_buf_len(buf: yajl_buf) -> usize;
-    fn yajl_buf_truncate(buf: yajl_buf, len: usize);
-    fn memset(_: *mut libc::c_void, _: libc::c_int, _: usize) -> *mut libc::c_void;
-}
-// pub type usize = usize;
-// pub type yajl_malloc_func =
-//     Option<unsafe extern "C" fn(*mut libc::c_void, usize) -> *mut libc::c_void>;
-// pub type yajl_free_func = Option<unsafe extern "C" fn(*mut libc::c_void, *mut libc::c_void) -> ()>;
-// pub type yajl_realloc_func =
-//     Option<unsafe extern "C" fn(*mut libc::c_void, *mut libc::c_void, usize) -> *mut libc::c_void>;
-// #[derive(Copy, Clone)]
-// #[repr(C)]
-// pub struct yajl_alloc_funcs {
-//     pub malloc: yajl_malloc_func,
-//     pub realloc: yajl_realloc_func,
-//     pub free: yajl_free_func,
-//     pub ctx: *mut libc::c_void,
-// }
+use crate::yajl_buf::yajl_buf_alloc;
+use crate::yajl_buf::yajl_buf_append;
+use crate::yajl_buf::yajl_buf_clear;
+use crate::yajl_buf::yajl_buf_data;
+use crate::yajl_buf::yajl_buf_free;
+use crate::yajl_buf::yajl_buf_len;
+use crate::yajl_buf::yajl_buf_truncate;
+
 pub type yajl_tok = libc::c_uint;
 pub const yajl_tok_comment: yajl_tok = 14;
 pub const yajl_tok_string_with_escapes: yajl_tok = 13;
@@ -71,7 +54,7 @@ pub const yajl_lex_string_invalid_escaped_char: yajl_lex_error = 2;
 pub const yajl_lex_string_invalid_utf8: yajl_lex_error = 1;
 pub const yajl_lex_e_ok: yajl_lex_error = 0;
 pub type yajl_lexer = *mut yajl_lexer_t;
-#[no_mangle]
+
 pub unsafe extern "C" fn yajl_lex_alloc(
     mut alloc: *mut yajl_alloc_funcs,
     mut allowComments: libc::c_uint,
@@ -81,7 +64,7 @@ pub unsafe extern "C" fn yajl_lex_alloc(
         (*alloc).ctx,
         ::core::mem::size_of::<yajl_lexer_t>(),
     ) as yajl_lexer;
-    memset(
+    libc::memset(
         lxr as *mut libc::c_void,
         0 as libc::c_int,
         ::core::mem::size_of::<yajl_lexer_t>(),
@@ -92,7 +75,7 @@ pub unsafe extern "C" fn yajl_lex_alloc(
     (*lxr).alloc = alloc;
     lxr
 }
-#[no_mangle]
+
 pub unsafe extern "C" fn yajl_lex_free(mut lxr: yajl_lexer) {
     yajl_buf_free((*lxr).buf);
     ((*(*lxr).alloc).free).expect("non-null function pointer")(
@@ -947,7 +930,7 @@ unsafe extern "C" fn yajl_lex_comment(
     }
     tok
 }
-#[no_mangle]
+
 pub unsafe extern "C" fn yajl_lex_lex(
     mut lexer: yajl_lexer,
     mut jsonText: *const libc::c_uchar,
@@ -1197,7 +1180,7 @@ pub unsafe extern "C" fn yajl_lex_lex(
     }
     tok
 }
-#[no_mangle]
+
 pub unsafe extern "C" fn yajl_lex_error_to_string(
     mut error: yajl_lex_error,
 ) -> *const libc::c_char {
@@ -1239,22 +1222,22 @@ pub unsafe extern "C" fn yajl_lex_error_to_string(
     }
     b"unknown error code\0" as *const u8 as *const libc::c_char
 }
-#[no_mangle]
+
 pub unsafe extern "C" fn yajl_lex_get_error(mut lexer: yajl_lexer) -> yajl_lex_error {
     if lexer.is_null() {
         return 4294967295 as yajl_lex_error;
     }
     (*lexer).error
 }
-#[no_mangle]
+
 pub unsafe extern "C" fn yajl_lex_current_line(mut lexer: yajl_lexer) -> usize {
     (*lexer).lineOff
 }
-#[no_mangle]
+
 pub unsafe extern "C" fn yajl_lex_current_char(mut lexer: yajl_lexer) -> usize {
     (*lexer).charOff
 }
-#[no_mangle]
+
 pub unsafe extern "C" fn yajl_lex_peek(
     mut lexer: yajl_lexer,
     mut jsonText: *const libc::c_uchar,

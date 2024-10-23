@@ -1,15 +1,11 @@
 use ::libc;
 
+use crate::yajl_buf::yajl_buf_append;
 use crate::yajl_buf::yajl_buf_t;
-extern "C" {
-    // pub type yajl_buf_t;
-    fn yajl_buf_append(buf: yajl_buf, data: *const libc::c_void, len: size_t);
-    fn strlen(_: *const libc::c_char) -> usize;
-}
-pub type size_t = usize;
+
 pub type yajl_buf = *mut yajl_buf_t;
 pub type yajl_print_t =
-    Option<unsafe extern "C" fn(*mut libc::c_void, *const libc::c_char, size_t) -> ()>;
+    Option<unsafe extern "C" fn(*mut libc::c_void, *const libc::c_char, usize) -> ()>;
 unsafe extern "C" fn CharToHex(mut c: libc::c_uchar, mut hexBuf: *mut libc::c_char) {
     let mut hexchar: *const libc::c_char =
         b"0123456789ABCDEF\0" as *const u8 as *const libc::c_char;
@@ -18,16 +14,16 @@ unsafe extern "C" fn CharToHex(mut c: libc::c_uchar, mut hexBuf: *mut libc::c_ch
     *hexBuf.offset(1 as libc::c_int as isize) =
         *hexchar.offset((c as libc::c_int & 0xf as libc::c_int) as isize);
 }
-#[no_mangle]
+
 pub unsafe extern "C" fn yajl_string_encode(
     print: yajl_print_t,
     mut ctx: *mut libc::c_void,
     mut str: *const libc::c_uchar,
-    mut len: size_t,
+    mut len: usize,
     mut escape_solidus: libc::c_int,
 ) {
-    let mut beg: size_t = 0 as libc::c_int as size_t;
-    let mut end: size_t = 0 as libc::c_int as size_t;
+    let mut beg: usize = 0 as libc::c_int as usize;
+    let mut end: usize = 0 as libc::c_int as usize;
     let mut hexBuf: [libc::c_char; 7] = [0; 7];
     hexBuf[0 as libc::c_int as usize] = '\\' as i32 as libc::c_char;
     hexBuf[1 as libc::c_int as usize] = 'u' as i32 as libc::c_char;
@@ -82,7 +78,7 @@ pub unsafe extern "C" fn yajl_string_encode(
             print.expect("non-null function pointer")(
                 ctx,
                 escaped,
-                strlen(escaped) as libc::c_uint as size_t,
+                libc::strlen(escaped) as libc::c_uint as usize,
             );
             end = end.wrapping_add(1);
             beg = end;
@@ -148,14 +144,14 @@ unsafe extern "C" fn Utf32toUtf8(mut codepoint: libc::c_uint, mut utf8Buf: *mut 
         *utf8Buf.offset(1 as libc::c_int as isize) = 0 as libc::c_int as libc::c_char;
     };
 }
-#[no_mangle]
+
 pub unsafe extern "C" fn yajl_string_decode(
     mut buf: yajl_buf,
     mut str: *const libc::c_uchar,
-    mut len: size_t,
+    mut len: usize,
 ) {
-    let mut beg: size_t = 0 as libc::c_int as size_t;
-    let mut end: size_t = 0 as libc::c_int as size_t;
+    let mut beg: usize = 0 as libc::c_int as usize;
+    let mut end: usize = 0 as libc::c_int as usize;
     let mut current_block_25: u64;
     while end < len {
         if *str.add(end) as libc::c_int == '\\' as i32 {
@@ -196,8 +192,7 @@ pub unsafe extern "C" fn yajl_string_decode(
                     let mut codepoint: libc::c_uint = 0 as libc::c_int as libc::c_uint;
                     end = end.wrapping_add(1);
                     hexToDigit(&mut codepoint, str.add(end));
-                    end =
-                        (end as usize).wrapping_add(3 as libc::c_int as usize) as size_t as size_t;
+                    end = (end as usize).wrapping_add(3 as libc::c_int as usize) as usize as usize;
                     if codepoint & 0xfc00 as libc::c_int as libc::c_uint
                         == 0xd800 as libc::c_int as libc::c_uint
                     {
@@ -218,8 +213,8 @@ pub unsafe extern "C" fn yajl_string_decode(
                                     .wrapping_add(1 as libc::c_int as libc::c_uint)
                                     << 16 as libc::c_int
                                 | surrogate & 0x3ff as libc::c_int as libc::c_uint;
-                            end = (end as usize).wrapping_add(5 as libc::c_int as usize) as size_t
-                                as size_t;
+                            end = (end as usize).wrapping_add(5 as libc::c_int as usize) as usize
+                                as usize;
                             current_block_25 = 13472856163611868459;
                         } else {
                             unescaped = b"?\0" as *const u8 as *const libc::c_char;
@@ -237,7 +232,7 @@ pub unsafe extern "C" fn yajl_string_decode(
                                 yajl_buf_append(
                                     buf,
                                     unescaped as *const libc::c_void,
-                                    1 as libc::c_int as size_t,
+                                    1 as libc::c_int as usize,
                                 );
                                 end = end.wrapping_add(1);
                                 beg = end;
@@ -251,7 +246,7 @@ pub unsafe extern "C" fn yajl_string_decode(
             yajl_buf_append(
                 buf,
                 unescaped as *const libc::c_void,
-                strlen(unescaped) as libc::c_uint as size_t,
+                libc::strlen(unescaped) as libc::c_uint as usize,
             );
             end = end.wrapping_add(1);
             beg = end;
@@ -265,10 +260,10 @@ pub unsafe extern "C" fn yajl_string_decode(
         end.wrapping_sub(beg),
     );
 }
-#[no_mangle]
+
 pub unsafe extern "C" fn yajl_string_validate_utf8(
     mut s: *const libc::c_uchar,
-    mut len: size_t,
+    mut len: usize,
 ) -> libc::c_int {
     if len == 0 {
         return 1 as libc::c_int;
