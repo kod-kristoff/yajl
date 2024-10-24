@@ -275,12 +275,12 @@ unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int
             }
             break;
         } else {
-            filedata[rd as usize] = 0 as libc::c_int as libc::c_uchar;
+            filedata[rd] = 0 as libc::c_int as libc::c_uchar;
             stat = yajl_parse(hand, filedata.as_mut_ptr(), rd);
             if stat as libc::c_uint != yajl_status_ok as libc::c_int as libc::c_uint {
                 break;
             }
-            let mut buf: *const libc::c_uchar = 0 as *const libc::c_uchar;
+            let mut buf: *const libc::c_uchar = std::ptr::null::<libc::c_uchar>();
             let mut len: usize = 0;
             yajl_gen_get_buf(g, &mut buf, &mut len);
             libc::fwrite(buf as *const libc::c_void, 1, len, stdout);
@@ -314,9 +314,6 @@ pub fn main() {
     }
     args.push(::core::ptr::null_mut());
     unsafe {
-        ::std::process::exit(main_0(
-            (args.len() - 1) as libc::c_int,
-            args.as_mut_ptr() as *mut *mut libc::c_char,
-        ) as i32)
+        ::std::process::exit(main_0((args.len() - 1) as libc::c_int, args.as_mut_ptr()) as i32)
     }
 }
