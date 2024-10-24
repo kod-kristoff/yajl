@@ -1,6 +1,11 @@
 [workspace]
 resolver = "2"
-members = ["crates/yajl", "crates/yajl-clib", "examples/yajl_test"]
+members = [
+    "crates/yajl",
+    "crates/yajl-clib",
+    "examples/yajl_test",
+    "examples/perftest",
+]
 
 [workspace.package]
 edition = "2021"
