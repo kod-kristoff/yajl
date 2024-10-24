@@ -4,7 +4,7 @@ members = [
     "crates/yajl",
     "crates/yajl-clib",
     "examples/yajl_test",
-    "examples/perftest", "examples/parse-config", "examples/json-verify",
+    "examples/perftest", "examples/parse-config", "examples/json-verify", "examples/json-reformat",
 ]
 
 [workspace.package]
