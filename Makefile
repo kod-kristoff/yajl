@@ -26,6 +26,7 @@ YAJL_INCLUDE = build/$(YAJL_DIST_NAME)/include
 RLIB = target/debug/libyajl.so
 CFLAGS = -I$(YAJL_INCLUDE)
 YAJL_TEST = build/test/parsing/yajl_test
+YAJL_TEST_API = build/tests/api/gen-extra-close
 YAJL_TEST_RS = target/debug/yajl_test
 INCLUDES = build/$(YAJL_DIST_NAME)/include/yajl/yajl_common.h\
 	build/$(YAJL_DIST_NAME)/include/yajl/yajl_gen.h\
@@ -37,6 +38,8 @@ distro: distro.include distro.pkgconfig
 build/$(YAJL_DIST_NAME)/include/yajl:
 	mkdir -p $@
 build/$(YAJL_DIST_NAME)/share/pkgconfig:
+	mkdir -p $@
+build/tests/api:
 	mkdir -p $@
 
 build/$(YAJL_DIST_NAME)/include/yajl/%.h: include/yajl/%.h build/$(YAJL_DIST_NAME)/include/yajl
@@ -61,7 +64,10 @@ bin/json_reformat: reformatter/json_reformat.o $(RLIB)
 	$(CC) -Wall $(CFLAGS) -o $@ $^
 
 $(YAJL_TEST): tests/parsing/yajl_test.c $(RLIB)
-	$(CC) -Wall $(CFLAGS) tests/parsing/yajl_test.c -l:libyajl.so -Ltarget/debug -o $@
+	$(CC) -Wall $(CFLAGS) $< -l:libyajl.so -Ltarget/debug -o $@
+
+$(YAJL_TEST_API): tests/api/gen-extra-close.c $(RLIB) build/tests/api
+	$(CC) -Wall $(CFLAGS) $< -l:libyajl.so -Ltarget/debug -o $@
 
 $(YAJL_TEST_RS): examples/yajl_test/src/main.rs examples/yajl_test/Cargo.toml
 	cargo build --package yajl_test
@@ -93,6 +99,9 @@ test-parsing: $(YAJL_TEST)
 
 test-parsing-rs: $(YAJL_TEST_RS)
 	cd tests/parsing && ./run_tests.sh "../../$(YAJL_TEST_RS)"
+
+test-api: $(YAJL_TEST_API)
+	cd build/tests/api && LD_LIBRARY_PATH=../../../target/debug ../../../tests/api/run_tests.sh
 
 bin/perftest: perf/documents.o perf/perftest.o $(RLIB)
 	$(CC) -Wall $(CFLAGS) -o $@ $^
