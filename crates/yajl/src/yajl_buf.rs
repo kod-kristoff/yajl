@@ -40,11 +40,8 @@ pub unsafe extern "C" fn yajl_buf_alloc(mut alloc: *mut yajl_alloc_funcs) -> yaj
         (*alloc).ctx,
         ::core::mem::size_of::<yajl_buf_t>(),
     ) as yajl_buf;
-    libc::memset(
-        b as *mut libc::c_void,
-        0 as libc::c_int,
-        ::core::mem::size_of::<yajl_buf_t>(),
-    );
+    b.write_bytes(0, 1);
+
     (*b).alloc = alloc;
     b
 }
