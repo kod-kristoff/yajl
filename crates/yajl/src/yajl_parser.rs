@@ -13,11 +13,23 @@ use crate::{
     },
     yajl_option::yajl_option,
 };
-extern "C" {
 
-    #[cfg_attr(target_os = "android", link_name = "__errno")]
-    fn __errno_location() -> *mut libc::c_int;
-}
+#[cfg(any(
+    target_os = "android",
+    target_os = "dragonfly",
+    target_os = "emscripten",
+    target_os = "freebsd",
+    target_os = "haiku",
+    target_os = "illumos",
+    target_os = "linux",
+    target_os = "macos",
+    target_os = "netbsd",
+    target_os = "openbsd",
+    target_os = "redox",
+    target_os = "solaris"
+))]
+#[allow(dead_code)]
+use crate::util_libc::{get_last_error, set_last_error};
 // pub type usize = usize;
 
 pub type yajl_status = libc::c_uint;
@@ -275,7 +287,7 @@ pub unsafe extern "C" fn yajl_parse_integer(
             > 9223372036854775807 as libc::c_longlong / 10 as libc::c_int as libc::c_longlong
                 + 9223372036854775807 as libc::c_longlong % 10 as libc::c_int as libc::c_longlong
         {
-            *__errno_location() = 34 as libc::c_int;
+            set_last_error(34);
             return if sign == 1 as libc::c_int as libc::c_long {
                 9223372036854775807 as libc::c_longlong
             } else {
@@ -286,7 +298,7 @@ pub unsafe extern "C" fn yajl_parse_integer(
         if 9223372036854775807 as libc::c_longlong - ret
             < (*pos as libc::c_int - '0' as i32) as libc::c_longlong
         {
-            *__errno_location() = 34 as libc::c_int;
+            set_last_error(34);
             return if sign == 1 as libc::c_int as libc::c_long {
                 9223372036854775807 as libc::c_longlong
             } else {
@@ -294,7 +306,7 @@ pub unsafe extern "C" fn yajl_parse_integer(
             };
         }
         if (*pos as libc::c_int) < '0' as i32 || *pos as libc::c_int > '9' as i32 {
-            *__errno_location() = 34 as libc::c_int;
+            set_last_error(34);
             return if sign == 1 as libc::c_int as libc::c_long {
                 9223372036854775807 as libc::c_longlong
             } else {
@@ -670,13 +682,13 @@ pub unsafe extern "C" fn yajl_do_parse(
                                 }
                             } else if ((*(*hand).callbacks).yajl_integer).is_some() {
                                 let mut i: libc::c_longlong = 0 as libc::c_int as libc::c_longlong;
-                                *__errno_location() = 0 as libc::c_int;
+                                set_last_error(0);
                                 i = yajl_parse_integer(buf, bufLen as libc::c_uint);
                                 if (i
                                     == -(9223372036854775807 as libc::c_longlong)
                                         - 1 as libc::c_longlong
                                     || i == 9223372036854775807 as libc::c_longlong)
-                                    && *__errno_location() == 34 as libc::c_int
+                                    && get_last_error() == 34 as libc::c_int
                                 {
                                     *((*hand).stateStack.stack).add(
                                         ((*hand).stateStack.used)
@@ -740,12 +752,12 @@ pub unsafe extern "C" fn yajl_do_parse(
                                     bufLen,
                                 );
                                 buf = yajl_buf_data((*hand).decodeBuf);
-                                *__errno_location() = 0 as libc::c_int;
+                                set_last_error(0);
                                 d = libc::strtod(
                                     buf as *mut libc::c_char,
                                     std::ptr::null_mut::<*mut libc::c_char>(),
                                 );
-                                if d.is_infinite() && *__errno_location() == 34 as libc::c_int {
+                                if d.is_infinite() && get_last_error() == 34 as libc::c_int {
                                     *((*hand).stateStack.stack).add(
                                         ((*hand).stateStack.used)
                                             .wrapping_sub(1 as libc::c_int as usize),
