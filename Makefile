@@ -27,23 +27,23 @@ RLIB = target/debug/libyajl.so
 CFLAGS = -I$(YAJL_INCLUDE)
 YAJL_TEST = build/test/parsing/yajl_test
 YAJL_TEST_RS = target/debug/yajl_test
-INCLUDES = build/$(YAJL_DIST_NAME)/include/yajl_common.h\
-	build/$(YAJL_DIST_NAME)/include/yajl_gen.h\
-	build/$(YAJL_DIST_NAME)/include/yajl_parse.h\
-	build/$(YAJL_DIST_NAME)/include/yajl_tree.h\
-	build/$(YAJL_DIST_NAME)/include/yajl_version.h
+INCLUDES = build/$(YAJL_DIST_NAME)/include/yajl/yajl_common.h\
+	build/$(YAJL_DIST_NAME)/include/yajl/yajl_gen.h\
+	build/$(YAJL_DIST_NAME)/include/yajl/yajl_parse.h\
+	build/$(YAJL_DIST_NAME)/include/yajl/yajl_tree.h\
+	build/$(YAJL_DIST_NAME)/include/yajl/yajl_version.h
 
 distro: distro.include distro.pkgconfig
-build/$(YAJL_DIST_NAME)/include:
+build/$(YAJL_DIST_NAME)/include/yajl:
 	mkdir -p $@
 build/$(YAJL_DIST_NAME)/share/pkgconfig:
 	mkdir -p $@
 
-build/$(YAJL_DIST_NAME)/include/%.h: include/yajl/%.h build/$(YAJL_DIST_NAME)/include
+build/$(YAJL_DIST_NAME)/include/yajl/%.h: include/yajl/%.h build/$(YAJL_DIST_NAME)/include/yajl
 	cp $< $@
 distro.include: $(INCLUDES)
 distro.pkgconfig: build/$(YAJL_DIST_NAME)/share/pkgconfig/yajl.pc
-build/$(YAJL_DIST_NAME)/include/yajl_version.h: include/yajl/yajl_version.h.in build/$(YAJL_DIST_NAME)/include
+build/$(YAJL_DIST_NAME)/include/yajl/yajl_version.h: include/yajl/yajl_version.h.in build/$(YAJL_DIST_NAME)/include/yajl
 	sed 's/define YAJL_MAJOR/define YAJL_MAJOR ${YAJL_MAJOR}/' $< > $@
 	sed -i 's/define YAJL_MINOR/define YAJL_MINOR ${YAJL_MINOR}/' $@
 	sed -i 's/define YAJL_MICRO/define YAJL_MICRO ${YAJL_PATCH}/' $@
