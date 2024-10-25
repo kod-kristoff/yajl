@@ -15,4 +15,5 @@
 // pub mod yajl;
 pub mod yajl_gen;
 pub mod yajl_parse;
+pub mod yajl_tree;
 pub mod yajl_version;
