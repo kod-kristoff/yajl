@@ -154,11 +154,8 @@ unsafe extern "C" fn value_alloc(mut type_0: yajl_type) -> yajl_val {
     if v.is_null() {
         return 0 as yajl_val;
     }
-    libc::memset(
-        v as *mut libc::c_void,
-        0 as libc::c_int,
-        ::core::mem::size_of::<yajl_val_s>(),
-    );
+    std::ptr::write_bytes(v, 0, 1);
+
     (*v).type_0 = type_0;
     v
 }
@@ -212,11 +209,8 @@ unsafe extern "C" fn context_push(mut ctx: *mut context_t, mut v: yajl_val) -> l
         }
         return 12 as libc::c_int;
     }
-    libc::memset(
-        stack as *mut libc::c_void,
-        0 as libc::c_int,
-        ::core::mem::size_of::<stack_elem_t>(),
-    );
+    std::ptr::write_bytes(stack, 0, 1);
+
     (*stack).value = v;
     (*stack).next = (*ctx).stack;
     (*ctx).stack = stack;
@@ -651,11 +645,10 @@ pub unsafe extern "C" fn yajl_tree_parse(
     ctx.errbuf = error_buffer;
     ctx.errbuf_size = error_buffer_size;
     if !error_buffer.is_null() {
-        libc::memset(
-            error_buffer as *mut libc::c_void,
-            0 as libc::c_int,
-            error_buffer_size,
-        );
+        std::ptr::write_bytes(error_buffer as *mut libc::c_void, 0, error_buffer_size)
+
+        //     error_buffer_size,
+        // );
     }
     handle = yajl_handle_t::alloc(
         addr_of!(callbacks),

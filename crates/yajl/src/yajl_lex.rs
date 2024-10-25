@@ -64,11 +64,8 @@ pub unsafe extern "C" fn yajl_lex_alloc(
         (*alloc).ctx,
         ::core::mem::size_of::<yajl_lexer_t>(),
     ) as yajl_lexer;
-    libc::memset(
-        lxr as *mut libc::c_void,
-        0 as libc::c_int,
-        ::core::mem::size_of::<yajl_lexer_t>(),
-    );
+    std::ptr::write_bytes(lxr, 0, 1);
+
     (*lxr).buf = yajl_buf_alloc(alloc);
     (*lxr).allowComments = allowComments;
     (*lxr).validateUTF8 = validateUTF8;

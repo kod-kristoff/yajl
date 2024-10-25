@@ -1,3 +1,5 @@
+use std::ptr;
+
 use ::libc;
 
 use crate::{
@@ -208,12 +210,9 @@ pub unsafe extern "C" fn yajl_gen_alloc(mut afs: *const yajl_alloc_funcs) -> yaj
     if g.is_null() {
         return std::ptr::null_mut();
     }
-    g.write_bytes(0, 1);
-    // libc::memset(
-    //     g as *mut libc::c_void,
-    //     0 as libc::c_int,
-    //     ::core::mem::size_of::<yajl_gen_t>(),
-    // );
+
+    ptr::write_bytes(g, 0, 1);
+
     libc::memcpy(
         &mut (*g).alloc as *mut yajl_alloc_funcs as *mut libc::c_void,
         afs as *mut libc::c_void,
@@ -231,11 +230,8 @@ pub unsafe extern "C" fn yajl_gen_alloc(mut afs: *const yajl_alloc_funcs) -> yaj
 }
 pub unsafe extern "C" fn yajl_gen_reset(mut g: yajl_gen, mut sep: *const libc::c_char) {
     (*g).depth = 0 as libc::c_int as libc::c_uint;
-    libc::memset(
-        &mut (*g).state as *mut [yajl_gen_state; 128] as *mut libc::c_void,
-        0 as libc::c_int,
-        ::core::mem::size_of::<[yajl_gen_state; 128]>(),
-    );
+    (*g).state.fill(0);
+
     if !sep.is_null() {
         ((*g).print).expect("non-null function pointer")((*g).ctx, sep, libc::strlen(sep));
     }
