@@ -43,7 +43,7 @@ unsafe fn main_0() -> libc::c_int {
     let mut path: [*const libc::c_char; 3] = [
         b"Logging\0" as *const u8 as *const libc::c_char,
         b"timeFormat\0" as *const u8 as *const libc::c_char,
-        0 as *const libc::c_char,
+        std::ptr::null::<libc::c_char>(),
     ];
     let v: yajl_val = yajl_tree_get(node, path.as_mut_ptr(), yajl_t_string);
     if !v.is_null() {
@@ -56,7 +56,7 @@ unsafe fn main_0() -> libc::c_int {
             {
                 (*v).u.string
             } else {
-                0 as *mut libc::c_char
+                std::ptr::null_mut::<libc::c_char>()
             },
         );
     } else {
@@ -67,7 +67,7 @@ unsafe fn main_0() -> libc::c_int {
         );
     }
     yajl_tree_free(node);
-    return 0 as libc::c_int;
+    0 as libc::c_int
 }
 pub fn main() {
     unsafe { ::std::process::exit(main_0() as i32) }

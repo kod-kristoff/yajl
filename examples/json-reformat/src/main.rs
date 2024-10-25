@@ -1,3 +1,5 @@
+use std::ptr::{addr_of, addr_of_mut};
+
 use ::libc;
 use yajl::{
     yajl::{yajl_complete_parse, yajl_config, yajl_free_error, yajl_get_error, yajl_handle},
@@ -34,8 +36,7 @@ unsafe extern "C" fn reformat_null(ctx: *mut libc::c_void) -> libc::c_int {
         yajl_gen_reset(g, b"\n\0" as *const u8 as *const libc::c_char);
         __stat = yajl_gen_null(g);
     }
-    return (__stat as libc::c_uint == yajl_gen_status_ok as libc::c_int as libc::c_uint)
-        as libc::c_int;
+    (__stat as libc::c_uint == yajl_gen_status_ok as libc::c_int as libc::c_uint) as libc::c_int
 }
 unsafe extern "C" fn reformat_boolean(ctx: *mut libc::c_void, boolean: libc::c_int) -> libc::c_int {
     let g: yajl_gen = ctx as yajl_gen;
@@ -46,8 +47,7 @@ unsafe extern "C" fn reformat_boolean(ctx: *mut libc::c_void, boolean: libc::c_i
         yajl_gen_reset(g, b"\n\0" as *const u8 as *const libc::c_char);
         __stat = yajl_gen_bool(g, boolean);
     }
-    return (__stat as libc::c_uint == yajl_gen_status_ok as libc::c_int as libc::c_uint)
-        as libc::c_int;
+    (__stat as libc::c_uint == yajl_gen_status_ok as libc::c_int as libc::c_uint) as libc::c_int
 }
 unsafe extern "C" fn reformat_number(
     ctx: *mut libc::c_void,
@@ -62,8 +62,7 @@ unsafe extern "C" fn reformat_number(
         yajl_gen_reset(g, b"\n\0" as *const u8 as *const libc::c_char);
         __stat = yajl_gen_number(g, s, l);
     }
-    return (__stat as libc::c_uint == yajl_gen_status_ok as libc::c_int as libc::c_uint)
-        as libc::c_int;
+    (__stat as libc::c_uint == yajl_gen_status_ok as libc::c_int as libc::c_uint) as libc::c_int
 }
 unsafe extern "C" fn reformat_string(
     ctx: *mut libc::c_void,
@@ -78,8 +77,7 @@ unsafe extern "C" fn reformat_string(
         yajl_gen_reset(g, b"\n\0" as *const u8 as *const libc::c_char);
         __stat = yajl_gen_string(g, string_val, string_len);
     }
-    return (__stat as libc::c_uint == yajl_gen_status_ok as libc::c_int as libc::c_uint)
-        as libc::c_int;
+    (__stat as libc::c_uint == yajl_gen_status_ok as libc::c_int as libc::c_uint) as libc::c_int
 }
 unsafe extern "C" fn reformat_map_key(
     ctx: *mut libc::c_void,
@@ -94,8 +92,7 @@ unsafe extern "C" fn reformat_map_key(
         yajl_gen_reset(g, b"\n\0" as *const u8 as *const libc::c_char);
         __stat = yajl_gen_string(g, string_val, string_len);
     }
-    return (__stat as libc::c_uint == yajl_gen_status_ok as libc::c_int as libc::c_uint)
-        as libc::c_int;
+    (__stat as libc::c_uint == yajl_gen_status_ok as libc::c_int as libc::c_uint) as libc::c_int
 }
 unsafe extern "C" fn reformat_start_map(ctx: *mut libc::c_void) -> libc::c_int {
     let g: yajl_gen = ctx as yajl_gen;
@@ -106,8 +103,7 @@ unsafe extern "C" fn reformat_start_map(ctx: *mut libc::c_void) -> libc::c_int {
         yajl_gen_reset(g, b"\n\0" as *const u8 as *const libc::c_char);
         __stat = yajl_gen_map_open(g);
     }
-    return (__stat as libc::c_uint == yajl_gen_status_ok as libc::c_int as libc::c_uint)
-        as libc::c_int;
+    (__stat as libc::c_uint == yajl_gen_status_ok as libc::c_int as libc::c_uint) as libc::c_int
 }
 unsafe extern "C" fn reformat_end_map(ctx: *mut libc::c_void) -> libc::c_int {
     let g: yajl_gen = ctx as yajl_gen;
@@ -118,8 +114,7 @@ unsafe extern "C" fn reformat_end_map(ctx: *mut libc::c_void) -> libc::c_int {
         yajl_gen_reset(g, b"\n\0" as *const u8 as *const libc::c_char);
         __stat = yajl_gen_map_close(g);
     }
-    return (__stat as libc::c_uint == yajl_gen_status_ok as libc::c_int as libc::c_uint)
-        as libc::c_int;
+    (__stat as libc::c_uint == yajl_gen_status_ok as libc::c_int as libc::c_uint) as libc::c_int
 }
 unsafe extern "C" fn reformat_start_array(ctx: *mut libc::c_void) -> libc::c_int {
     let g: yajl_gen = ctx as yajl_gen;
@@ -130,8 +125,7 @@ unsafe extern "C" fn reformat_start_array(ctx: *mut libc::c_void) -> libc::c_int
         yajl_gen_reset(g, b"\n\0" as *const u8 as *const libc::c_char);
         __stat = yajl_gen_array_open(g);
     }
-    return (__stat as libc::c_uint == yajl_gen_status_ok as libc::c_int as libc::c_uint)
-        as libc::c_int;
+    (__stat as libc::c_uint == yajl_gen_status_ok as libc::c_int as libc::c_uint) as libc::c_int
 }
 unsafe extern "C" fn reformat_end_array(ctx: *mut libc::c_void) -> libc::c_int {
     let g: yajl_gen = ctx as yajl_gen;
@@ -142,8 +136,7 @@ unsafe extern "C" fn reformat_end_array(ctx: *mut libc::c_void) -> libc::c_int {
         yajl_gen_reset(g, b"\n\0" as *const u8 as *const libc::c_char);
         __stat = yajl_gen_array_close(g);
     }
-    return (__stat as libc::c_uint == yajl_gen_status_ok as libc::c_int as libc::c_uint)
-        as libc::c_int;
+    (__stat as libc::c_uint == yajl_gen_status_ok as libc::c_int as libc::c_uint) as libc::c_int
 }
 unsafe extern "C" fn usage(progname: *const libc::c_char) {
     libc::fprintf(
@@ -155,15 +148,14 @@ unsafe extern "C" fn usage(progname: *const libc::c_char) {
     libc::exit(1 as libc::c_int);
 }
 unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int {
-    let hand: yajl_handle;
-    let mut filedata: [libc::c_uchar; 65536] = [0; 65536];
-    let g: yajl_gen;
+    static mut FILEDATA: [libc::c_uchar; 65536] = [0; 65536];
+
     let mut stat: yajl_status;
     let mut rd: usize;
     let mut retval: libc::c_int = 0 as libc::c_int;
     let mut a: libc::c_int = 1 as libc::c_int;
-    let mut callbacks: yajl_callbacks = {
-        let init = yajl_callbacks {
+    let callbacks: yajl_callbacks = {
+        yajl_callbacks {
             yajl_null: Some(
                 reformat_null as unsafe extern "C" fn(*mut libc::c_void) -> libc::c_int,
             ),
@@ -209,15 +201,14 @@ unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int
             yajl_end_array: Some(
                 reformat_end_array as unsafe extern "C" fn(*mut libc::c_void) -> libc::c_int,
             ),
-        };
-        init
+        }
     };
-    g = yajl_gen_alloc(0 as *const yajl_alloc_funcs);
+    let g: yajl_gen = yajl_gen_alloc(std::ptr::null::<yajl_alloc_funcs>());
     yajl_gen_config(g, yajl_gen_beautify, 1 as libc::c_int);
     yajl_gen_config(g, yajl_gen_validate_utf8, 1 as libc::c_int);
-    hand = yajl_handle_t::alloc(
-        &mut callbacks,
-        0 as *mut yajl_alloc_funcs,
+    let hand: yajl_handle = yajl_handle_t::alloc(
+        addr_of!(callbacks),
+        std::ptr::null_mut::<yajl_alloc_funcs>(),
         g as *mut libc::c_void,
     );
     yajl_config(hand, yajl_allow_comments, 1 as libc::c_int);
@@ -228,7 +219,7 @@ unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int
     {
         let mut i = 1;
         while (i) < libc::strlen(*argv.offset(a as isize)) {
-            match *(*argv.offset(a as isize)).offset(i as isize) as libc::c_int {
+            match *(*argv.offset(a as isize)).add(i) as libc::c_int {
                 109 => {
                     yajl_gen_config(g, yajl_gen_beautify, 0 as libc::c_int);
                 }
@@ -246,7 +237,7 @@ unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int
                     libc::fprintf(
                         stderr,
                         b"unrecognized option: '%c'\n\n\0" as *const u8 as *const libc::c_char,
-                        *(*argv.offset(a as isize)).offset(i as isize) as libc::c_int,
+                        *(*argv.offset(a as isize)).add(i) as libc::c_int,
                     );
                     usage(*argv.offset(0 as libc::c_int as isize));
                 }
@@ -260,7 +251,7 @@ unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int
     }
     loop {
         rd = libc::fread(
-            filedata.as_mut_ptr() as *mut libc::c_void,
+            FILEDATA.as_mut_ptr() as *mut libc::c_void,
             1,
             ::core::mem::size_of::<[libc::c_uchar; 65536]>().wrapping_sub(1),
             stdin,
@@ -275,8 +266,8 @@ unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int
             }
             break;
         } else {
-            filedata[rd] = 0 as libc::c_int as libc::c_uchar;
-            stat = yajl_parse(hand, filedata.as_mut_ptr(), rd);
+            FILEDATA[rd] = 0 as libc::c_int as libc::c_uchar;
+            stat = yajl_parse(hand, addr_of_mut!(FILEDATA) as *const u8, rd);
             if stat as libc::c_uint != yajl_status_ok as libc::c_int as libc::c_uint {
                 break;
             }
@@ -290,7 +281,7 @@ unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int
     stat = yajl_complete_parse(hand);
     if stat as libc::c_uint != yajl_status_ok as libc::c_int as libc::c_uint {
         let str: *mut libc::c_uchar =
-            yajl_get_error(hand, 1 as libc::c_int, filedata.as_mut_ptr(), rd);
+            yajl_get_error(hand, 1 as libc::c_int, FILEDATA.as_mut_ptr(), rd);
         libc::fprintf(
             stderr,
             b"%s\0" as *const u8 as *const libc::c_char,
@@ -301,7 +292,7 @@ unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int
     }
     yajl_gen_free(g);
     yajl_handle_t::free(hand);
-    return retval;
+    retval
 }
 pub fn main() {
     let mut args: Vec<*mut libc::c_char> = Vec::new();

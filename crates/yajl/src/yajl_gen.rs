@@ -131,7 +131,7 @@ pub unsafe extern "C" fn yajl_gen_config_set_indent(
                     && *indent as libc::c_int != '\r' as i32
                     && *indent as libc::c_int != ' ' as i32
                 {
-                    (*g).indentString = 0 as *const libc::c_char;
+                    (*g).indentString = std::ptr::null::<libc::c_char>();
                     rv = 0 as libc::c_int;
                 }
                 indent = indent.offset(1);
@@ -163,7 +163,7 @@ pub unsafe extern "C" fn yajl_gen_config(
             rv = 0 as libc::c_int;
         }
     }
-    return rv;
+    rv
 }
 #[cfg(not(feature = "nightly"))]
 pub unsafe extern "C" fn yajl_gen_config_print_callback(
@@ -184,7 +184,7 @@ pub unsafe extern "C" fn yajl_gen_config_print_callback(
             rv = 0 as libc::c_int;
         }
     }
-    return rv;
+    rv
 }
 pub unsafe extern "C" fn yajl_gen_alloc(mut afs: *const yajl_alloc_funcs) -> yajl_gen {
     let mut g: yajl_gen = 0 as yajl_gen;

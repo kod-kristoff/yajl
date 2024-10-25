@@ -1,3 +1,4 @@
+#![allow(clippy::missing_safety_doc)]
 use ::libc;
 
 use yajl::{yajl_alloc::yajl_alloc_funcs, yajl_buf::yajl_buf_t, yajl_gen::yajl_gen_t};
