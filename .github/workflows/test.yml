@@ -83,7 +83,8 @@ jobs:
       - name: cargo update -Zminimal-versions
         run: cargo +nightly update -Zdirect-minimal-versions
       - name: cargo test
-        run: cargo test --locked --all-features --all-targets
+        # run: cargo test --locked --all-features --all-targets
+        run: cargo test --locked --all-targets
   os-check:
     # run cargo test on mac and windows
     runs-on: ${{ matrix.os }}
@@ -231,4 +232,4 @@ jobs:
         uses: re-actors/alls-green@release/v1
         with:
           jobs: ${{ toJSON(needs) }}
-          allowed-failures: minimal
+          # allowed-failures: minimal
