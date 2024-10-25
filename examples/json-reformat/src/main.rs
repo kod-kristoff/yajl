@@ -27,116 +27,60 @@ extern "C" {
 }
 
 static mut STREAM_REFORMAT: libc::c_int = 0 as libc::c_int;
-unsafe extern "C" fn reformat_null(ctx: *mut libc::c_void) -> libc::c_int {
+unsafe fn with_yajl_gen<F>(ctx: *mut libc::c_void, f: F) -> libc::c_int
+where
+    F: Fn(yajl_gen) -> yajl_gen_status,
+{
     let g: yajl_gen = ctx as yajl_gen;
-    let mut __stat: yajl_gen_status = yajl_gen_null(g);
-    if __stat as libc::c_uint == yajl_gen_generation_complete as libc::c_int as libc::c_uint
+    let mut stat = f(g);
+
+    if stat as libc::c_uint == yajl_gen_generation_complete as libc::c_int as libc::c_uint
         && STREAM_REFORMAT != 0
     {
         yajl_gen_reset(g, b"\n\0" as *const u8 as *const libc::c_char);
-        __stat = yajl_gen_null(g);
+        stat = f(g);
     }
-    (__stat as libc::c_uint == yajl_gen_status_ok as libc::c_int as libc::c_uint) as libc::c_int
+
+    (stat as libc::c_uint == yajl_gen_status_ok as libc::c_int as libc::c_uint) as libc::c_int
+}
+unsafe extern "C" fn reformat_null(ctx: *mut libc::c_void) -> libc::c_int {
+    with_yajl_gen(ctx, |g| yajl_gen_null(g))
 }
 unsafe extern "C" fn reformat_boolean(ctx: *mut libc::c_void, boolean: libc::c_int) -> libc::c_int {
-    let g: yajl_gen = ctx as yajl_gen;
-    let mut __stat: yajl_gen_status = yajl_gen_bool(g, boolean);
-    if __stat as libc::c_uint == yajl_gen_generation_complete as libc::c_int as libc::c_uint
-        && STREAM_REFORMAT != 0
-    {
-        yajl_gen_reset(g, b"\n\0" as *const u8 as *const libc::c_char);
-        __stat = yajl_gen_bool(g, boolean);
-    }
-    (__stat as libc::c_uint == yajl_gen_status_ok as libc::c_int as libc::c_uint) as libc::c_int
+    with_yajl_gen(ctx, |g| yajl_gen_bool(g, boolean))
 }
 unsafe extern "C" fn reformat_number(
     ctx: *mut libc::c_void,
     s: *const libc::c_char,
     l: usize,
 ) -> libc::c_int {
-    let g: yajl_gen = ctx as yajl_gen;
-    let mut __stat: yajl_gen_status = yajl_gen_number(g, s, l);
-    if __stat as libc::c_uint == yajl_gen_generation_complete as libc::c_int as libc::c_uint
-        && STREAM_REFORMAT != 0
-    {
-        yajl_gen_reset(g, b"\n\0" as *const u8 as *const libc::c_char);
-        __stat = yajl_gen_number(g, s, l);
-    }
-    (__stat as libc::c_uint == yajl_gen_status_ok as libc::c_int as libc::c_uint) as libc::c_int
+    with_yajl_gen(ctx, |g| yajl_gen_number(g, s, l))
 }
 unsafe extern "C" fn reformat_string(
     ctx: *mut libc::c_void,
     string_val: *const libc::c_uchar,
     string_len: usize,
 ) -> libc::c_int {
-    let g: yajl_gen = ctx as yajl_gen;
-    let mut __stat: yajl_gen_status = yajl_gen_string(g, string_val, string_len);
-    if __stat as libc::c_uint == yajl_gen_generation_complete as libc::c_int as libc::c_uint
-        && STREAM_REFORMAT != 0
-    {
-        yajl_gen_reset(g, b"\n\0" as *const u8 as *const libc::c_char);
-        __stat = yajl_gen_string(g, string_val, string_len);
-    }
-    (__stat as libc::c_uint == yajl_gen_status_ok as libc::c_int as libc::c_uint) as libc::c_int
+    with_yajl_gen(ctx, |g| yajl_gen_string(g, string_val, string_len))
 }
 unsafe extern "C" fn reformat_map_key(
     ctx: *mut libc::c_void,
     string_val: *const libc::c_uchar,
     string_len: usize,
 ) -> libc::c_int {
-    let g: yajl_gen = ctx as yajl_gen;
-    let mut __stat: yajl_gen_status = yajl_gen_string(g, string_val, string_len);
-    if __stat as libc::c_uint == yajl_gen_generation_complete as libc::c_int as libc::c_uint
-        && STREAM_REFORMAT != 0
-    {
-        yajl_gen_reset(g, b"\n\0" as *const u8 as *const libc::c_char);
-        __stat = yajl_gen_string(g, string_val, string_len);
-    }
-    (__stat as libc::c_uint == yajl_gen_status_ok as libc::c_int as libc::c_uint) as libc::c_int
+    with_yajl_gen(ctx, |g| yajl_gen_string(g, string_val, string_len))
 }
 unsafe extern "C" fn reformat_start_map(ctx: *mut libc::c_void) -> libc::c_int {
-    let g: yajl_gen = ctx as yajl_gen;
-    let mut __stat: yajl_gen_status = yajl_gen_map_open(g);
-    if __stat as libc::c_uint == yajl_gen_generation_complete as libc::c_int as libc::c_uint
-        && STREAM_REFORMAT != 0
-    {
-        yajl_gen_reset(g, b"\n\0" as *const u8 as *const libc::c_char);
-        __stat = yajl_gen_map_open(g);
-    }
-    (__stat as libc::c_uint == yajl_gen_status_ok as libc::c_int as libc::c_uint) as libc::c_int
+    with_yajl_gen(ctx, |g| yajl_gen_map_open(g))
 }
 unsafe extern "C" fn reformat_end_map(ctx: *mut libc::c_void) -> libc::c_int {
-    let g: yajl_gen = ctx as yajl_gen;
-    let mut __stat: yajl_gen_status = yajl_gen_map_close(g);
-    if __stat as libc::c_uint == yajl_gen_generation_complete as libc::c_int as libc::c_uint
-        && STREAM_REFORMAT != 0
-    {
-        yajl_gen_reset(g, b"\n\0" as *const u8 as *const libc::c_char);
-        __stat = yajl_gen_map_close(g);
-    }
-    (__stat as libc::c_uint == yajl_gen_status_ok as libc::c_int as libc::c_uint) as libc::c_int
+    with_yajl_gen(ctx, |g| yajl_gen_map_close(g))
 }
 unsafe extern "C" fn reformat_start_array(ctx: *mut libc::c_void) -> libc::c_int {
-    let g: yajl_gen = ctx as yajl_gen;
-    let mut __stat: yajl_gen_status = yajl_gen_array_open(g);
-    if __stat as libc::c_uint == yajl_gen_generation_complete as libc::c_int as libc::c_uint
-        && STREAM_REFORMAT != 0
-    {
-        yajl_gen_reset(g, b"\n\0" as *const u8 as *const libc::c_char);
-        __stat = yajl_gen_array_open(g);
-    }
-    (__stat as libc::c_uint == yajl_gen_status_ok as libc::c_int as libc::c_uint) as libc::c_int
+    with_yajl_gen(ctx, |g| yajl_gen_array_open(g))
 }
 unsafe extern "C" fn reformat_end_array(ctx: *mut libc::c_void) -> libc::c_int {
-    let g: yajl_gen = ctx as yajl_gen;
-    let mut __stat: yajl_gen_status = yajl_gen_array_close(g);
-    if __stat as libc::c_uint == yajl_gen_generation_complete as libc::c_int as libc::c_uint
-        && STREAM_REFORMAT != 0
-    {
-        yajl_gen_reset(g, b"\n\0" as *const u8 as *const libc::c_char);
-        __stat = yajl_gen_array_close(g);
-    }
-    (__stat as libc::c_uint == yajl_gen_status_ok as libc::c_int as libc::c_uint) as libc::c_int
+    with_yajl_gen(ctx, |g| yajl_gen_array_close(g))
 }
 unsafe extern "C" fn usage(progname: *const libc::c_char) {
     libc::fprintf(

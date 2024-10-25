@@ -54,48 +54,9 @@ unsafe fn main_0(_argc: libc::c_int, _argv: *mut *mut libc::c_char) -> libc::c_i
             }
         }
     }
-    // while a < argc
-    //     && *(*argv.offset(a as isize)).offset(0 as libc::c_int as isize) as libc::c_int
-    //         == '-' as i32
-    //     && libc::strlen(*argv.offset(a as isize)) > 1 as libc::c_int as libc::c_ulong
-    // {
-    //     let mut i: libc::c_uint = 0;
-    //     i = 1 as libc::c_int as libc::c_uint;
-    //     while (i as libc::c_ulong) < libc::strlen(*argv.offset(a as isize)) {
-    //         match *(*argv.offset(a as isize)).offset(i as isize) as libc::c_int {
-    //             113 => {
-    //                 quiet = 1 as libc::c_int;
-    //             }
-    //             99 => {}
-    //             117 => {}
-    //             115 => {}
-    //             _ => {
-    //                 fprintf(
-    //                     stderr,
-    //                     b"unrecognized option: '%c'\n\n\0" as *const u8 as *const libc::c_char,
-    //                     *(*argv.offset(a as isize)).offset(i as isize) as libc::c_int,
-    //                 );
-    //                 // usage(*argv.offset(0 as libc::c_int as isize));
-    //                 usage(args().nth(0).as_deref());
-    //             }
-    //         }
-    //         i = i.wrapping_add(1);
-    //     }
-    //     a += 1;
-    // }
-    // if a < argc {
-    //     // usage(*argv.offset(0 as libc::c_int as isize));
-    //     usage(args().nth(0).as_deref());
-    // }
+
     let mut stdin = io::stdin();
     loop {
-        // rd = libc::fread(
-        //     fileData.as_mut_ptr() as *mut libc::c_void,
-        //     1 as libc::c_int as libc::c_ulong,
-        //     (::core::mem::size_of::<[libc::c_uchar; 65536]>() as libc::c_ulong)
-        //         .wrapping_sub(1 as libc::c_int as libc::c_ulong),
-        //     stdin,
-        // );
         rd = match stdin.read(&mut filedata) {
             Ok(rd) => rd,
             Err(err) => {
@@ -107,15 +68,6 @@ unsafe fn main_0(_argc: libc::c_int, _argv: *mut *mut libc::c_char) -> libc::c_i
         };
         retval = 0 as libc::c_int;
         if rd == 0 {
-            //     if feof(stdin) == 0 {
-            //         if quiet == 0 {
-            //             libc::fprintf(
-            //                 stderr,
-            //                 b"error encountered on file read\n\0" as *const u8 as *const libc::c_char,
-            //             );
-            //         }
-            //         retval = 1 as libc::c_int;
-            //     }
             break;
         } else {
             filedata[rd] = 0 as libc::c_int as libc::c_uchar;
@@ -130,11 +82,7 @@ unsafe fn main_0(_argc: libc::c_int, _argv: *mut *mut libc::c_char) -> libc::c_i
         if quiet == 0 {
             let str: *mut libc::c_uchar =
                 yajl_get_error(hand, 1 as libc::c_int, filedata.as_mut_ptr(), rd);
-            // libc::fprintf(
-            //     stderr,
-            //     b"%s\0" as *const u8 as *const libc::c_char,
-            //     str as *const libc::c_char,
-            // );
+
             libc::write(
                 libc::STDERR_FILENO,
                 str as *mut libc::c_void,
