@@ -130,22 +130,23 @@ pub const yajl_allow_multiple_values: yajl_option = 8;
 pub const yajl_allow_trailing_garbage: yajl_option = 4;
 pub const yajl_dont_validate_strings: yajl_option = 2;
 pub const yajl_allow_comments: yajl_option = 1;
-type Errno = libc::c_int;
-fn get_last_error() -> Errno {
-    // SAFETY:
-    //  The only way to safely access the referenced errno is to use either
-    //  `get_last_error` or `set_last_error`, ensuring that no one currently
-    //  holds a mutable reference to the underlying value.
-    unsafe { *libc::__errno_location() }
-}
 
-fn set_last_error(code: Errno) {
-    // SAFETY:
-    //  The only way to safely access the referenced errno is to use either
-    //  `set_last_error` or `get_last_error`, ensuring that no one currently
-    //  holds any reference to the underlying value.
-    unsafe { *libc::__errno_location() = code };
-}
+#[cfg(any(
+    target_os = "android",
+    target_os = "dragonfly",
+    target_os = "emscripten",
+    target_os = "freebsd",
+    target_os = "haiku",
+    target_os = "illumos",
+    target_os = "linux",
+    target_os = "macos",
+    target_os = "netbsd",
+    target_os = "openbsd",
+    target_os = "redox",
+    target_os = "solaris"
+))]
+#[allow(dead_code)]
+use crate::util_libc::{get_last_error, set_last_error};
 
 unsafe extern "C" fn value_alloc(mut type_0: yajl_type) -> yajl_val {
     let mut v: yajl_val = std::ptr::null_mut::<yajl_val_s>();
