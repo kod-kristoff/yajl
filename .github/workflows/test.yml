@@ -181,6 +181,8 @@ jobs:
       - name: cargo generate-lockfile
         if: hashFiles('Cargo.lock') == ''
         run: cargo generate-lockfile
+      - name: make distro
+        run: make distro
       - name: run example ${{ matrix.example }}
         # run: cargo llvm-cov --locked --all-features --lcov --output-path lcov.info
         run: make run-${{ matrix.example }}
