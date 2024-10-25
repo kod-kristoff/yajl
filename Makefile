@@ -18,10 +18,38 @@ help:
 	@echo "    run-json-verify"
 	@echo "            run json_verify example in C using yajl-clib"
 
+YAJL_MAJOR=2
+YAJL_MINOR=1
+YAJL_PATCH=2
+YAJL_DIST_NAME = yajl-${YAJL_MAJOR}.${YAJL_MINOR}.${YAJL_PATCH}
+YAJL_INCLUDE = build/$(YAJL_DIST_NAME)/include
 RLIB = target/debug/libyajl.so
-CFLAGS = -Ibuild/yajl-2.1.1/include
+CFLAGS = -I$(YAJL_INCLUDE)
 YAJL_TEST = build/test/parsing/yajl_test
 YAJL_TEST_RS = target/debug/yajl_test
+INCLUDES = build/$(YAJL_DIST_NAME)/include/yajl_common.h\
+	build/$(YAJL_DIST_NAME)/include/yajl_gen.h\
+	build/$(YAJL_DIST_NAME)/include/yajl_parse.h\
+	build/$(YAJL_DIST_NAME)/include/yajl_tree.h\
+	build/$(YAJL_DIST_NAME)/include/yajl_version.h
+
+distro: distro.include distro.pkgconfig
+build/$(YAJL_DIST_NAME)/include:
+	mkdir -p $@
+build/$(YAJL_DIST_NAME)/share/pkgconfig:
+	mkdir -p $@
+
+build/$(YAJL_DIST_NAME)/include/%.h: include/yajl/%.h build/$(YAJL_DIST_NAME)/include
+	cp $< $@
+distro.include: $(INCLUDES)
+distro.pkgconfig: build/$(YAJL_DIST_NAME)/share/pkgconfig/yajl.pc
+build/$(YAJL_DIST_NAME)/include/yajl_version.h: include/yajl/yajl_version.h.in build/$(YAJL_DIST_NAME)/include
+	sed 's/define YAJL_MAJOR/define YAJL_MAJOR ${YAJL_MAJOR}/' $< > $@
+	sed -i 's/define YAJL_MINOR/define YAJL_MINOR ${YAJL_MINOR}/' $@
+	sed -i 's/define YAJL_MICRO/define YAJL_MICRO ${YAJL_PATCH}/' $@
+
+build/$(YAJL_DIST_NAME)/share/pkgconfig/yajl.pc: share/pkgconfig/yajl.pc build/$(YAJL_DIST_NAME)/share/pkgconfig
+	sed 's/Version: ../Version: ${YAJL_MAJOR}.${YAJL_MINOR}.${YAJL_PATCH}/' $< > $@
 
 bin/parse_config: examples/parse_config.o $(RLIB)
 	$(CC) -Wall $(CFLAGS) -o $@ $^
