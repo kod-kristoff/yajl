@@ -1,3 +1,5 @@
+use std::ptr::addr_of;
+
 use ::libc;
 
 #[no_mangle]
@@ -87,11 +89,11 @@ pub static mut doc3: [*const libc::c_char; 7] = [
     0 as *const libc::c_char,
 ];
 #[no_mangle]
-pub static mut g_documents: [*mut *const libc::c_char; 4] = unsafe {
+pub static mut g_documents: [*const *const libc::c_char; 4] = unsafe {
     [
-        doc1.as_ptr() as *mut _,
-        doc2.as_ptr() as *mut _,
-        doc3.as_ptr() as *mut _,
+        addr_of!(doc1) as *const _,
+        addr_of!(doc2) as *const _,
+        addr_of!(doc3) as *const _,
         0 as *const *const libc::c_char as *mut *const libc::c_char,
     ]
 };
@@ -104,13 +106,13 @@ pub unsafe extern "C" fn num_docs() -> usize {
     i
 }
 #[no_mangle]
-pub unsafe extern "C" fn get_doc(i: usize) -> *mut *const libc::c_char {
+pub unsafe extern "C" fn get_doc(i: usize) -> *const *const libc::c_char {
     g_documents[i]
 }
 #[no_mangle]
 pub unsafe extern "C" fn doc_size(i: usize) -> usize {
     let mut sz: usize = 0;
-    let mut p: *mut *const libc::c_char = get_doc(i);
+    let mut p: *const *const libc::c_char = get_doc(i);
     loop {
         sz = (sz).wrapping_add(libc::strlen(*p));
         p = p.offset(1);

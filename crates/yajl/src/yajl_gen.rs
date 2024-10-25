@@ -187,7 +187,6 @@ pub unsafe extern "C" fn yajl_gen_config_print_callback(
     rv
 }
 pub unsafe extern "C" fn yajl_gen_alloc(mut afs: *const yajl_alloc_funcs) -> yajl_gen {
-    let mut g: yajl_gen = 0 as yajl_gen;
     let mut afsBuffer: yajl_alloc_funcs = yajl_alloc_funcs {
         malloc: None,
         realloc: None,
@@ -202,18 +201,19 @@ pub unsafe extern "C" fn yajl_gen_alloc(mut afs: *const yajl_alloc_funcs) -> yaj
         yajl_set_default_alloc_funcs(&mut afsBuffer);
         afs = &mut afsBuffer;
     }
-    g = ((*afs).malloc).expect("non-null function pointer")(
+    let g = ((*afs).malloc).expect("non-null function pointer")(
         (*afs).ctx,
         ::core::mem::size_of::<yajl_gen_t>(),
     ) as yajl_gen;
     if g.is_null() {
-        return 0 as yajl_gen;
+        return std::ptr::null_mut();
     }
-    libc::memset(
-        g as *mut libc::c_void,
-        0 as libc::c_int,
-        ::core::mem::size_of::<yajl_gen_t>(),
-    );
+    g.write_bytes(0, size_of::<yajl_gen_t>());
+    // libc::memset(
+    //     g as *mut libc::c_void,
+    //     0 as libc::c_int,
+    //     ::core::mem::size_of::<yajl_gen_t>(),
+    // );
     libc::memcpy(
         &mut (*g).alloc as *mut yajl_alloc_funcs as *mut libc::c_void,
         afs as *mut libc::c_void,
