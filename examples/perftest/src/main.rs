@@ -21,7 +21,10 @@ unsafe extern "C" fn mygettime() -> libc::c_double {
         tv_sec: 0,
         tv_usec: 0,
     };
+    #[cfg(not(target_os = "macos"))]
     libc::gettimeofday(&mut now, std::ptr::null_mut::<libc::timezone>());
+    #[cfg(target_os = "macos")]
+    libc::gettimeofday(&mut now, std::ptr::null_mut::<libc::c_void>());
     now.tv_sec as libc::c_double + now.tv_usec as libc::c_double / 1000000.0f64
 }
 unsafe extern "C" fn run(validate_utf8: libc::c_int) -> libc::c_int {
