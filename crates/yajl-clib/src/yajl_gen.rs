@@ -1,8 +1,8 @@
 #![allow(clippy::missing_safety_doc)]
 use ::libc;
 
-use yajl::{yajl_alloc::yajl_alloc_funcs, yajl_buf::yajl_buf_t, yajl_gen::yajl_gen_t};
-
+pub use yajl::yajl_gen::yajl_gen_t;
+use yajl::{yajl_alloc::yajl_alloc_funcs, yajl_buf::yajl_buf_t};
 pub type __builtin_va_list = [__va_list_tag; 1];
 #[derive(Copy, Clone)]
 #[repr(C)]
