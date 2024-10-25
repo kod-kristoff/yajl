@@ -26,14 +26,14 @@ fn usage(progname: Option<&str>) {
 unsafe fn main_0(_argc: libc::c_int, _argv: *mut *mut libc::c_char) -> libc::c_int {
     let mut stat: yajl_status;
     let mut rd: usize;
-    let hand: yajl_handle;
+
     let mut filedata: [libc::c_uchar; 65536] = [0; 65536];
     let mut quiet: libc::c_int = 0 as libc::c_int;
     let mut retval: libc::c_int;
-    hand = yajl_handle_t::alloc(
-        0 as *const yajl_callbacks,
-        0 as *mut yajl_alloc_funcs,
-        0 as *mut libc::c_void,
+    let hand: yajl_handle = yajl_handle_t::alloc(
+        std::ptr::null::<yajl_callbacks>(),
+        std::ptr::null_mut::<yajl_alloc_funcs>(),
+        std::ptr::null_mut::<libc::c_void>(),
     );
     let argv: Vec<String> = std::env::args().collect();
     for a in argv.iter().skip(1) {
@@ -50,7 +50,7 @@ unsafe fn main_0(_argc: libc::c_int, _argv: *mut *mut libc::c_char) -> libc::c_i
             }
             c => {
                 eprintln!("unrecognized option: '{c}'\n");
-                usage(args().nth(0).as_deref());
+                usage(args().next().as_deref());
             }
         }
     }
@@ -118,7 +118,7 @@ unsafe fn main_0(_argc: libc::c_int, _argv: *mut *mut libc::c_char) -> libc::c_i
             //     }
             break;
         } else {
-            filedata[rd as usize] = 0 as libc::c_int as libc::c_uchar;
+            filedata[rd] = 0 as libc::c_int as libc::c_uchar;
             stat = yajl_parse(hand, filedata.as_mut_ptr(), rd);
             if stat != yajl_status_ok {
                 break;
@@ -152,7 +152,7 @@ unsafe fn main_0(_argc: libc::c_int, _argv: *mut *mut libc::c_char) -> libc::c_i
     if quiet == 0 {
         println!("JSON is {}", if retval != 0 { "invalid" } else { "valid" },);
     }
-    return retval;
+    retval
 }
 pub fn main() {
     let mut args: Vec<*mut libc::c_char> = Vec::new();
@@ -165,9 +165,6 @@ pub fn main() {
     }
     args.push(::core::ptr::null_mut());
     unsafe {
-        ::std::process::exit(main_0(
-            (args.len() - 1) as libc::c_int,
-            args.as_mut_ptr() as *mut *mut libc::c_char,
-        ) as i32)
+        ::std::process::exit(main_0((args.len() - 1) as libc::c_int, args.as_mut_ptr()) as i32)
     }
 }

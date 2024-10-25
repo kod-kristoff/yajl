@@ -192,7 +192,7 @@ pub unsafe extern "C" fn yajl_string_decode(
                     let mut codepoint: libc::c_uint = 0 as libc::c_int as libc::c_uint;
                     end = end.wrapping_add(1);
                     hexToDigit(&mut codepoint, str.add(end));
-                    end = (end as usize).wrapping_add(3 as libc::c_int as usize) as usize as usize;
+                    end = end.wrapping_add(3 as libc::c_int as usize);
                     if codepoint & 0xfc00 as libc::c_int as libc::c_uint
                         == 0xd800 as libc::c_int as libc::c_uint
                     {
@@ -213,8 +213,7 @@ pub unsafe extern "C" fn yajl_string_decode(
                                     .wrapping_add(1 as libc::c_int as libc::c_uint)
                                     << 16 as libc::c_int
                                 | surrogate & 0x3ff as libc::c_int as libc::c_uint;
-                            end = (end as usize).wrapping_add(5 as libc::c_int as usize) as usize
-                                as usize;
+                            end = end.wrapping_add(5 as libc::c_int as usize);
                             current_block_25 = 13472856163611868459;
                         } else {
                             unescaped = b"?\0" as *const u8 as *const libc::c_char;

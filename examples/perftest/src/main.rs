@@ -21,8 +21,8 @@ unsafe extern "C" fn mygettime() -> libc::c_double {
         tv_sec: 0,
         tv_usec: 0,
     };
-    libc::gettimeofday(&mut now, 0 as *mut libc::timezone);
-    return now.tv_sec as libc::c_double + now.tv_usec as libc::c_double / 1000000.0f64;
+    libc::gettimeofday(&mut now, std::ptr::null_mut::<libc::timezone>());
+    now.tv_sec as libc::c_double + now.tv_usec as libc::c_double / 1000000.0f64
 }
 unsafe extern "C" fn run(validate_utf8: libc::c_int) -> libc::c_int {
     let mut times: usize = 0;
@@ -35,9 +35,9 @@ unsafe extern "C" fn run(validate_utf8: libc::c_int) -> libc::c_int {
         let mut i = 0 as libc::c_int;
         while i < 100 as libc::c_int {
             let hand: yajl_handle = yajl_handle_t::alloc(
-                0 as *const yajl_callbacks,
-                0 as *mut yajl_alloc_funcs,
-                0 as *mut libc::c_void,
+                std::ptr::null::<yajl_callbacks>(),
+                std::ptr::null_mut::<yajl_alloc_funcs>(),
+                std::ptr::null_mut::<libc::c_void>(),
             );
             let mut stat: yajl_status;
             yajl_config(
@@ -83,7 +83,7 @@ unsafe extern "C" fn run(validate_utf8: libc::c_int) -> libc::c_int {
         b"B/s\0" as *const u8 as *const libc::c_char,
         b"KB/s\0" as *const u8 as *const libc::c_char,
         b"MB/s\0" as *const u8 as *const libc::c_char,
-        0 as *mut libc::c_char as *const libc::c_char,
+        std::ptr::null_mut::<libc::c_char>() as *const libc::c_char,
     ];
     let mut units: *mut *const libc::c_char = all_units.as_mut_ptr();
     let mut avg_doc_size: usize = 0;
@@ -106,7 +106,7 @@ unsafe extern "C" fn run(validate_utf8: libc::c_int) -> libc::c_int {
         throughput,
         *units,
     );
-    return 0 as libc::c_int;
+    0 as libc::c_int
 }
 unsafe fn main_0() -> libc::c_int {
     libc::printf(
@@ -121,7 +121,7 @@ unsafe fn main_0() -> libc::c_int {
     }
     libc::printf(b"Without UTF8 validation:\n\0" as *const u8 as *const libc::c_char);
     rv = run(0 as libc::c_int);
-    return rv;
+    rv
 }
 pub fn main() {
     unsafe { ::std::process::exit(main_0() as i32) }

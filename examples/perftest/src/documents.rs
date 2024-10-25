@@ -101,11 +101,11 @@ pub unsafe extern "C" fn num_docs() -> usize {
     while !(g_documents[i]).is_null() {
         i += 1;
     }
-    return i;
+    i
 }
 #[no_mangle]
 pub unsafe extern "C" fn get_doc(i: usize) -> *mut *const libc::c_char {
-    return g_documents[i];
+    g_documents[i]
 }
 #[no_mangle]
 pub unsafe extern "C" fn doc_size(i: usize) -> usize {
@@ -118,5 +118,5 @@ pub unsafe extern "C" fn doc_size(i: usize) -> usize {
             break;
         }
     }
-    return sz;
+    sz
 }
