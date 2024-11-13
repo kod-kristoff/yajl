@@ -15,3 +15,8 @@ libc = { workspace = true }
 
 [lib]
 doctest = false
+
+[dev-dependencies]
+anyhow = "1.0.92"
+insta = { version = "1.41.1", features = ["yaml"] }
+rstest = "0.23.0"
