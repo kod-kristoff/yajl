@@ -173,6 +173,8 @@ jobs:
           - "parse-config"
           - "json-verify"
           - "json-reformat"
+          - "perftest"
+          - "test-parsing"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -200,6 +202,8 @@ jobs:
           - "parse-config"
           - "json-verify"
           - "json-reformat"
+          - "perftest"
+          - "test-parsing"
     steps:
       - uses: actions/checkout@v4
         with:

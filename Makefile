@@ -41,6 +41,8 @@ build/$(YAJL_DIST_NAME)/share/pkgconfig:
 	mkdir -p $@
 build/tests/api:
 	mkdir -p $@
+build/test/parsing:
+	mkdir -p $@
 
 build/$(YAJL_DIST_NAME)/include/yajl/%.h: include/yajl/%.h build/$(YAJL_DIST_NAME)/include/yajl
 	cp $< $@
@@ -63,7 +65,7 @@ bin/json_verify: verify/json_verify.o $(RLIB)
 bin/json_reformat: reformatter/json_reformat.o $(RLIB)
 	$(CC) -Wall $(CFLAGS) -o $@ $^
 
-$(YAJL_TEST): tests/parsing/yajl_test.c $(RLIB)
+$(YAJL_TEST): tests/parsing/yajl_test.c $(RLIB) build/test/parsing
 	$(CC) -Wall $(CFLAGS) $< -l:libyajl.so -Ltarget/debug -o $@
 
 $(YAJL_TEST_API): tests/api/gen-extra-close.c $(RLIB) build/tests/api
@@ -93,10 +95,12 @@ run-json-reformat: bin/json_reformat
 run-json-reformat-rs:
 	cargo run --package json-reformat < examples/sample.config
 
+run-test-parsing: test-parsing
 test-parsing: $(YAJL_TEST)
 	# cd test/parsing && ./run_tests.sh
 	cd tests/parsing && LD_LIBRARY_PATH=../../target/debug ./run_tests.sh
 
+run-test-parsing-rs: test-parsing-rs
 test-parsing-rs: $(YAJL_TEST_RS)
 	cd tests/parsing && ./run_tests.sh "../../$(YAJL_TEST_RS)"
 
