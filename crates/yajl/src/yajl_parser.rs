@@ -1,4 +1,6 @@
 #![allow(clippy::missing_safety_doc)]
+use core::ptr;
+
 use ::libc;
 
 use crate::{
@@ -76,7 +78,7 @@ impl yajl_handle_t {
             malloc: None,
             realloc: None,
             free: None,
-            ctx: std::ptr::null_mut::<libc::c_void>(),
+            ctx: ptr::null_mut::<libc::c_void>(),
         };
         if !afs.is_null() {
             if ((*afs).malloc).is_none() || ((*afs).realloc).is_none() || ((*afs).free).is_none() {
@@ -101,7 +103,7 @@ impl yajl_handle_t {
         (*hand).bytesConsumed = 0 as libc::c_int as usize;
         (*hand).decodeBuf = yajl_buf_alloc(&mut (*hand).alloc);
         (*hand).flags = 0 as libc::c_int as libc::c_uint;
-        (*hand).stateStack.stack = std::ptr::null_mut::<libc::c_uchar>();
+        (*hand).stateStack.stack = ptr::null_mut::<libc::c_uchar>();
         (*hand).stateStack.size = 0 as libc::c_int as usize;
         (*hand).stateStack.used = 0 as libc::c_int as usize;
         (*hand).stateStack.yaf = &mut (*hand).alloc;
@@ -327,9 +329,9 @@ pub unsafe extern "C" fn yajl_render_error_string(
     mut verbose: libc::c_int,
 ) -> *mut libc::c_uchar {
     let mut offset: usize = (*hand).bytesConsumed;
-    let mut str: *mut libc::c_uchar = std::ptr::null_mut::<libc::c_uchar>();
-    let mut errorType: *const libc::c_char = std::ptr::null::<libc::c_char>();
-    let mut errorText: *const libc::c_char = std::ptr::null::<libc::c_char>();
+    let mut str: *mut libc::c_uchar = ptr::null_mut::<libc::c_uchar>();
+    let mut errorType: *const libc::c_char = ptr::null::<libc::c_char>();
+    let mut errorText: *const libc::c_char = ptr::null::<libc::c_char>();
     let mut text: [libc::c_char; 72] = [0; 72];
     let mut arrow: *const libc::c_char =
         b"                     (right here) ------^\n\0" as *const u8 as *const libc::c_char;
@@ -365,7 +367,7 @@ pub unsafe extern "C" fn yajl_render_error_string(
         memneeded.wrapping_add(2 as libc::c_int as usize),
     ) as *mut libc::c_uchar;
     if str.is_null() {
-        return std::ptr::null_mut::<libc::c_uchar>();
+        return ptr::null_mut::<libc::c_uchar>();
     }
     *str.offset(0 as libc::c_int as isize) = 0 as libc::c_int as libc::c_uchar;
     libc::strcat(str as *mut libc::c_char, errorType);
@@ -483,7 +485,7 @@ pub unsafe extern "C" fn yajl_do_parse(
 ) -> yajl_status {
     let mut current_block: u64;
     let mut tok: yajl_tok = yajl_tok_bool;
-    let mut buf: *const libc::c_uchar = std::ptr::null::<libc::c_uchar>();
+    let mut buf: *const libc::c_uchar = ptr::null::<libc::c_uchar>();
     let mut bufLen: usize = 0;
     let mut offset: *mut usize = &mut (*hand).bytesConsumed;
     *offset = 0 as libc::c_int as usize;
@@ -755,7 +757,7 @@ pub unsafe extern "C" fn yajl_do_parse(
                                 set_last_error(0);
                                 d = libc::strtod(
                                     buf as *mut libc::c_char,
-                                    std::ptr::null_mut::<*mut libc::c_char>(),
+                                    ptr::null_mut::<*mut libc::c_char>(),
                                 );
                                 if d.is_infinite() && get_last_error() == 34 as libc::c_int {
                                     *((*hand).stateStack.stack).add(

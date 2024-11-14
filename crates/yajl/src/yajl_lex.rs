@@ -1,3 +1,5 @@
+use core::ptr;
+
 use ::libc;
 
 use crate::yajl_alloc::yajl_alloc_funcs;
@@ -64,7 +66,7 @@ pub unsafe extern "C" fn yajl_lex_alloc(
         (*alloc).ctx,
         ::core::mem::size_of::<yajl_lexer_t>(),
     ) as yajl_lexer;
-    std::ptr::write_bytes(lxr, 0, 1);
+    ptr::write_bytes(lxr, 0, 1);
 
     (*lxr).buf = yajl_buf_alloc(alloc);
     (*lxr).allowComments = allowComments;
@@ -487,7 +489,7 @@ unsafe extern "C" fn yajl_lex_string(
     let mut hasEscapes: libc::c_int = 0 as libc::c_int;
     's_10: loop {
         let mut curChar: libc::c_uchar = 0;
-        let mut p: *const libc::c_uchar = std::ptr::null::<libc::c_uchar>();
+        let mut p: *const libc::c_uchar = ptr::null::<libc::c_uchar>();
         let mut len: usize = 0;
         if (*lexer).bufInUse != 0
             && yajl_buf_len((*lexer).buf) != 0
@@ -939,7 +941,7 @@ pub unsafe extern "C" fn yajl_lex_lex(
     let mut tok: yajl_tok = yajl_tok_error;
     let mut c: libc::c_uchar = 0;
     let mut startOffset: usize = *offset;
-    *outBuf = std::ptr::null::<libc::c_uchar>();
+    *outBuf = ptr::null::<libc::c_uchar>();
     *outLen = 0 as libc::c_int as usize;
     's_21: loop {
         if *offset >= jsonTextLen {
@@ -1241,7 +1243,7 @@ pub unsafe extern "C" fn yajl_lex_peek(
     mut jsonTextLen: usize,
     mut offset: usize,
 ) -> yajl_tok {
-    let mut outBuf: *const libc::c_uchar = std::ptr::null::<libc::c_uchar>();
+    let mut outBuf: *const libc::c_uchar = ptr::null::<libc::c_uchar>();
     let mut outLen: usize = 0;
     let mut bufLen: usize = yajl_buf_len((*lexer).buf);
     let mut bufOff: usize = (*lexer).bufOff;

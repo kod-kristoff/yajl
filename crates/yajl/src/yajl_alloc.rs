@@ -1,3 +1,5 @@
+use core::ptr;
+
 use ::libc;
 
 pub type yajl_malloc_func =
@@ -45,5 +47,5 @@ pub unsafe extern "C" fn yajl_set_default_alloc_funcs(mut yaf: *mut yajl_alloc_f
                 usize,
             ) -> *mut libc::c_void,
     );
-    (*yaf).ctx = std::ptr::null_mut::<libc::c_void>();
+    (*yaf).ctx = ptr::null_mut::<libc::c_void>();
 }

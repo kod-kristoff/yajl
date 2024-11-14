@@ -1,4 +1,4 @@
-use std::ptr;
+use core::ptr;
 
 use ::libc;
 
@@ -133,7 +133,7 @@ pub unsafe extern "C" fn yajl_gen_config_set_indent(
                     && *indent as libc::c_int != '\r' as i32
                     && *indent as libc::c_int != ' ' as i32
                 {
-                    (*g).indentString = std::ptr::null::<libc::c_char>();
+                    (*g).indentString = ptr::null::<libc::c_char>();
                     rv = 0 as libc::c_int;
                 }
                 indent = indent.offset(1);
@@ -193,7 +193,7 @@ pub unsafe extern "C" fn yajl_gen_alloc(mut afs: *const yajl_alloc_funcs) -> yaj
         malloc: None,
         realloc: None,
         free: None,
-        ctx: std::ptr::null_mut::<libc::c_void>(),
+        ctx: ptr::null_mut::<libc::c_void>(),
     };
     if !afs.is_null() {
         if ((*afs).malloc).is_none() || ((*afs).realloc).is_none() || ((*afs).free).is_none() {
@@ -208,7 +208,7 @@ pub unsafe extern "C" fn yajl_gen_alloc(mut afs: *const yajl_alloc_funcs) -> yaj
         ::core::mem::size_of::<yajl_gen_t>(),
     ) as yajl_gen;
     if g.is_null() {
-        return std::ptr::null_mut();
+        return ptr::null_mut();
     }
 
     ptr::write_bytes(g, 0, 1);

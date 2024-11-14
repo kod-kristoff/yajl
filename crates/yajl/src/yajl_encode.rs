@@ -1,4 +1,5 @@
 use ::libc;
+use core::ptr;
 
 use crate::yajl_buf::yajl_buf_append;
 use crate::yajl_buf::yajl_buf_t;
@@ -31,7 +32,7 @@ pub unsafe extern "C" fn yajl_string_encode(
     hexBuf[3 as libc::c_int as usize] = '0' as i32 as libc::c_char;
     hexBuf[6 as libc::c_int as usize] = 0 as libc::c_int as libc::c_char;
     while end < len {
-        let mut escaped: *const libc::c_char = std::ptr::null::<libc::c_char>();
+        let mut escaped: *const libc::c_char = ptr::null::<libc::c_char>();
         match *str.add(end) as libc::c_int {
             13 => {
                 escaped = b"\\r\0" as *const u8 as *const libc::c_char;
