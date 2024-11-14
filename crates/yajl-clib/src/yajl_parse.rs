@@ -3,9 +3,7 @@ use yajl::{
     yajl_alloc::yajl_alloc_funcs,
     yajl_lex::yajl_lex_alloc,
     yajl_option::{yajl_allow_comments, yajl_dont_validate_strings, yajl_option},
-    yajl_parser::{
-        yajl_callbacks, yajl_do_finish, yajl_do_parse, yajl_handle_t, yajl_render_error_string,
-    },
+    yajl_parser::{yajl_callbacks, yajl_handle_t, yajl_render_error_string},
     yajl_status::{yajl_status, yajl_status_ok},
 };
 
@@ -99,29 +97,13 @@ pub unsafe extern "C" fn yajl_parse(
     mut jsonText: *const libc::c_uchar,
     mut jsonTextLen: libc::size_t,
 ) -> yajl_status {
-    let mut status: yajl_status = yajl_status_ok;
-    if ((*hand).lexer).is_null() {
-        (*hand).lexer = yajl_lex_alloc(
-            &mut (*hand).alloc as *mut yajl_alloc_funcs,
-            (*hand).flags & yajl_allow_comments,
-            ((*hand).flags & yajl_dont_validate_strings as libc::c_int as libc::c_uint == 0)
-                as libc::c_int as libc::c_uint,
-        );
-    }
-    status = yajl_do_parse(hand, jsonText, jsonTextLen);
-    status
+    let hand = unsafe { &mut *hand };
+    hand.parse(jsonText, jsonTextLen)
 }
 #[no_mangle]
 pub unsafe extern "C" fn yajl_complete_parse(mut hand: yajl_handle) -> yajl_status {
-    if ((*hand).lexer).is_null() {
-        (*hand).lexer = yajl_lex_alloc(
-            &mut (*hand).alloc,
-            (*hand).flags & yajl_allow_comments as libc::c_int as libc::c_uint,
-            ((*hand).flags & yajl_dont_validate_strings as libc::c_int as libc::c_uint == 0)
-                as libc::c_int as libc::c_uint,
-        );
-    }
-    yajl_do_finish(hand)
+    let hand = unsafe { &mut *hand };
+    hand.complete_parse()
 }
 #[no_mangle]
 pub unsafe extern "C" fn yajl_get_error(

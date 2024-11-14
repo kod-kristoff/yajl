@@ -2,10 +2,9 @@
 use ::libc;
 use libc::STDERR_FILENO;
 use yajl::{
-    yajl::{yajl_complete_parse, yajl_config, yajl_free_error, yajl_get_error},
+    yajl::{yajl_config, yajl_free_error, yajl_get_error},
     yajl_alloc::yajl_alloc_funcs,
     yajl_option::yajl_dont_validate_strings,
-    yajl_parse,
     yajl_parser::{yajl_callbacks, yajl_handle_t},
     yajl_status::{yajl_status, yajl_status_ok},
 };
@@ -43,8 +42,8 @@ unsafe extern "C" fn run(validate_utf8: libc::c_int) -> libc::c_int {
                 std::ptr::null_mut::<libc::c_void>(),
             );
             let mut stat: yajl_status;
-            yajl_config(
-                hand,
+            let parser = unsafe { &mut *hand };
+            parser.config(
                 yajl_dont_validate_strings,
                 if validate_utf8 != 0 {
                     0 as libc::c_int
@@ -54,13 +53,13 @@ unsafe extern "C" fn run(validate_utf8: libc::c_int) -> libc::c_int {
             );
             let mut d = get_doc(times % num_docs());
             while !(*d).is_null() {
-                stat = yajl_parse(hand, *d as *mut libc::c_uchar, libc::strlen(*d));
+                stat = parser.parse(*d as *mut libc::c_uchar, libc::strlen(*d));
                 if stat as libc::c_uint != yajl_status_ok as libc::c_int as libc::c_uint {
                     break;
                 }
                 d = d.offset(1);
             }
-            stat = yajl_complete_parse(hand);
+            stat = parser.complete_parse();
             if stat != yajl_status_ok {
                 let str: *mut libc::c_uchar = yajl_get_error(
                     hand,

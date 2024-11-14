@@ -51,9 +51,8 @@ pub const yajl_status_ok: yajl_status = 0;
 use std::ptr::addr_of;
 
 use yajl::{
-    yajl::{yajl_complete_parse, yajl_config, yajl_free_error, yajl_get_error},
+    yajl::{yajl_config, yajl_free_error, yajl_get_error},
     yajl_alloc::yajl_alloc_funcs,
-    yajl_parse,
     yajl_parser::{yajl_callbacks, yajl_handle_t},
 };
 pub type yajl_handle = *mut yajl_handle_t;
@@ -268,6 +267,7 @@ unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int
         &mut allocFuncs,
         std::ptr::null_mut::<libc::c_void>(),
     );
+    let parser = unsafe { &mut *hand };
     let mut i = 1 as libc::c_int;
     while i < argc {
         if libc::strcmp(
@@ -365,13 +365,13 @@ unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int
             }
             break;
         } else {
-            stat = yajl_parse(hand, fileData, rd);
+            stat = parser.parse(fileData, rd);
             if stat as libc::c_uint != yajl_status_ok as libc::c_int as libc::c_uint {
                 break;
             }
         }
     }
-    stat = yajl_complete_parse(hand);
+    stat = parser.complete_parse();
     if stat as libc::c_uint != yajl_status_ok as libc::c_int as libc::c_uint {
         let str: *mut libc::c_uchar = yajl_get_error(hand, 0 as libc::c_int, fileData, rd);
         libc::fflush(stdout);

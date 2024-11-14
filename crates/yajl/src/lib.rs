@@ -23,8 +23,6 @@ pub mod yajl_status;
 pub mod yajl_tree;
 pub mod yajl_version;
 
-pub use yajl::yajl_parse;
-
 #[cfg(any(
     target_os = "android",
     target_os = "dragonfly",

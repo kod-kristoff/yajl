@@ -1,4 +1,6 @@
 #![allow(clippy::missing_safety_doc)]
+use core::ptr;
+
 use ::libc;
 
 use crate::{
@@ -45,7 +47,7 @@ pub struct yajl_handle_t {
     pub parseError: *const libc::c_char,
     pub bytesConsumed: usize,
     pub decodeBuf: yajl_buf,
-    pub stateStack: yajl_bytestack,
+    pub stateStack: ByteStack,
     pub alloc: yajl_alloc_funcs,
     pub flags: libc::c_uint,
 }
@@ -76,11 +78,11 @@ impl yajl_handle_t {
             malloc: None,
             realloc: None,
             free: None,
-            ctx: std::ptr::null_mut::<libc::c_void>(),
+            ctx: ptr::null_mut::<libc::c_void>(),
         };
         if !afs.is_null() {
             if ((*afs).malloc).is_none() || ((*afs).realloc).is_none() || ((*afs).free).is_none() {
-                return 0 as yajl_handle;
+                return ptr::null_mut();
             }
         } else {
             yajl_set_default_alloc_funcs(&mut afsBuffer);
@@ -97,32 +99,33 @@ impl yajl_handle_t {
         );
         (*hand).callbacks = callbacks;
         (*hand).ctx = ctx;
-        (*hand).lexer = 0 as yajl_lexer;
-        (*hand).bytesConsumed = 0 as libc::c_int as usize;
+        (*hand).lexer = ptr::null_mut();
+        (*hand).bytesConsumed = 0;
         (*hand).decodeBuf = yajl_buf_alloc(&mut (*hand).alloc);
-        (*hand).flags = 0 as libc::c_int as libc::c_uint;
-        (*hand).stateStack.stack = std::ptr::null_mut::<libc::c_uchar>();
-        (*hand).stateStack.size = 0 as libc::c_int as usize;
-        (*hand).stateStack.used = 0 as libc::c_int as usize;
+        (*hand).flags = 0;
+        (*hand).stateStack.stack = ptr::null_mut::<libc::c_uchar>();
+        (*hand).stateStack.size = 0;
+        (*hand).stateStack.used = 0;
         (*hand).stateStack.yaf = &mut (*hand).alloc;
-        if ((*hand).stateStack.size).wrapping_sub((*hand).stateStack.used)
-            == 0 as libc::c_int as usize
-        {
-            (*hand).stateStack.size = ((*hand).stateStack.size as usize)
-                .wrapping_add(128 as libc::c_int as usize)
-                as usize as usize;
+        if ((*hand).stateStack.size).wrapping_sub((*hand).stateStack.used) == 0 {
+            (*hand).stateStack.size = ((*hand).stateStack.size).wrapping_add(128);
             (*hand).stateStack.stack = ((*(*hand).stateStack.yaf).realloc)
                 .expect("non-null function pointer")(
                 (*(*hand).stateStack.yaf).ctx,
                 (*hand).stateStack.stack as *mut libc::c_void,
-                (*hand).stateStack.size as usize,
+                (*hand).stateStack.size,
             ) as *mut libc::c_uchar;
         }
         let fresh0 = (*hand).stateStack.used;
         (*hand).stateStack.used = ((*hand).stateStack.used).wrapping_add(1);
-        *((*hand).stateStack.stack).add(fresh0) = yajl_state_start as libc::c_int as libc::c_uchar;
+        *((*hand).stateStack.stack).add(fresh0) = yajl_state_start as u8;
         hand
     }
+    // pub fn new(mut callbacks: *const yajl_callbacks,
+    // mut afs: *mut yajl_alloc_funcs,
+    // mut ctx: *mut libc::c_void,) -> Self {
+    //     Self { callbacks: callbacks, ctx: ctx, lexer: ptr::null_mut(), parseError: ptr::null(), bytesConsumed: 0, decodeBuf: (), stateStack: (), alloc: (), flags: () }
+    // }
 
     pub unsafe fn free(mut handle: yajl_handle) {
         if !((*handle).stateStack.stack).is_null() {
@@ -134,7 +137,7 @@ impl yajl_handle_t {
         yajl_buf_free((*handle).decodeBuf);
         if !((*handle).lexer).is_null() {
             yajl_lex_free((*handle).lexer);
-            (*handle).lexer = 0 as yajl_lexer;
+            (*handle).lexer = ptr::null_mut();
         }
         ((*handle).alloc.free).expect("non-null function pointer")(
             (*handle).alloc.ctx,
@@ -166,32 +169,26 @@ impl yajl_handle_t {
         return rv;
     }
     #[cfg(not(feature = "nightly"))]
-    pub extern "C" fn config(
-        &mut self,
-        // mut h: yajl_handle,
-        mut opt: yajl_option,
-        mut arg: libc::c_int,
-    ) -> libc::c_int {
-        let mut rv: libc::c_int = 1 as libc::c_int;
-        match opt as libc::c_uint {
+    pub extern "C" fn config(&mut self, mut opt: yajl_option, mut arg: libc::c_int) -> libc::c_int {
+        let mut rv: libc::c_int = 1;
+        match opt {
             1 | 2 | 4 | 8 | 16 => {
                 if arg != 0 {
-                    self.flags |= opt as libc::c_uint;
+                    self.flags |= opt;
                 } else {
-                    self.flags &= !(opt as libc::c_uint);
+                    self.flags &= !(opt);
                 }
             }
             _ => {
-                rv = 0 as libc::c_int;
+                rv = 0;
             }
         }
         rv
     }
 }
-pub type yajl_bytestack = yajl_bytestack_t;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct yajl_bytestack_t {
+pub struct ByteStack {
     pub stack: *mut libc::c_uchar,
     pub size: usize,
     pub used: usize,
@@ -446,681 +443,692 @@ pub unsafe extern "C" fn yajl_render_error_string(
     }
     str
 }
-
-pub unsafe extern "C" fn yajl_do_finish(mut hand: yajl_handle) -> yajl_status {
-    let mut stat: yajl_status = yajl_status_ok;
-    stat = yajl_do_parse(
-        hand,
-        b" \0" as *const u8 as *const libc::c_char as *const libc::c_uchar,
-        1 as libc::c_int as usize,
-    );
-    if stat as libc::c_uint != yajl_status_ok as libc::c_int as libc::c_uint {
-        return stat;
-    }
-    match *((*hand).stateStack.stack)
-        .add(((*hand).stateStack.used).wrapping_sub(1 as libc::c_int as usize))
-        as libc::c_int
-    {
-        2 | 3 => yajl_status_error,
-        12 | 1 => yajl_status_ok,
-        _ => {
-            if (*hand).flags & yajl_allow_partial_values as libc::c_int as libc::c_uint == 0 {
-                *((*hand).stateStack.stack)
-                    .add(((*hand).stateStack.used).wrapping_sub(1 as libc::c_int as usize)) =
-                    yajl_state_parse_error as libc::c_int as libc::c_uchar;
-                (*hand).parseError = b"premature EOF\0" as *const u8 as *const libc::c_char;
-                return yajl_status_error;
-            }
-            yajl_status_ok
+impl yajl_handle_t {
+    pub unsafe fn do_finish(
+        &mut self,
+        // mut hand: yajl_handle
+    ) -> yajl_status {
+        let mut stat: yajl_status = yajl_status_ok;
+        stat = self.do_parse(
+            b" \0" as *const u8 as *const libc::c_char as *const libc::c_uchar,
+            1 as libc::c_int as usize,
+        );
+        if stat as libc::c_uint != yajl_status_ok as libc::c_int as libc::c_uint {
+            return stat;
         }
-    }
-}
-
-pub unsafe extern "C" fn yajl_do_parse(
-    mut hand: yajl_handle,
-    mut jsonText: *const libc::c_uchar,
-    mut jsonTextLen: usize,
-) -> yajl_status {
-    let mut current_block: u64;
-    let mut tok: yajl_tok = yajl_tok_bool;
-    let mut buf: *const libc::c_uchar = std::ptr::null::<libc::c_uchar>();
-    let mut bufLen: usize = 0;
-    let mut offset: *mut usize = &mut (*hand).bytesConsumed;
-    *offset = 0 as libc::c_int as usize;
-    loop {
-        match *((*hand).stateStack.stack)
-            .add(((*hand).stateStack.used).wrapping_sub(1 as libc::c_int as usize))
+        match *(self.stateStack.stack)
+            .add((self.stateStack.used).wrapping_sub(1 as libc::c_int as usize))
             as libc::c_int
         {
-            1 => {
-                if (*hand).flags & yajl_allow_multiple_values as libc::c_int as libc::c_uint != 0 {
-                    *((*hand).stateStack.stack)
-                        .add(((*hand).stateStack.used).wrapping_sub(1 as libc::c_int as usize)) =
-                        yajl_state_got_value as libc::c_int as libc::c_uchar;
-                } else {
-                    if (*hand).flags & yajl_allow_trailing_garbage as libc::c_int as libc::c_uint
-                        != 0
-                    {
-                        break;
+            2 | 3 => yajl_status_error,
+            12 | 1 => yajl_status_ok,
+            _ => {
+                if self.flags & yajl_allow_partial_values as libc::c_int as libc::c_uint == 0 {
+                    *(self.stateStack.stack)
+                        .add((self.stateStack.used).wrapping_sub(1 as libc::c_int as usize)) =
+                        yajl_state_parse_error as libc::c_int as libc::c_uchar;
+                    self.parseError = b"premature EOF\0" as *const u8 as *const libc::c_char;
+                    return yajl_status_error;
+                }
+                yajl_status_ok
+            }
+        }
+    }
+
+    pub unsafe fn do_parse(
+        &mut self,
+        // mut hand: yajl_handle,
+        mut jsonText: *const libc::c_uchar,
+        mut jsonTextLen: usize,
+    ) -> yajl_status {
+        let mut current_block: u64;
+        let mut tok: yajl_tok = yajl_tok_bool;
+        let mut buf: *const libc::c_uchar = ptr::null::<libc::c_uchar>();
+        let mut bufLen: usize = 0;
+        let mut offset: *mut usize = &mut self.bytesConsumed;
+        *offset = 0 as libc::c_int as usize;
+        loop {
+            match *(self.stateStack.stack).add((self.stateStack.used).wrapping_sub(1))
+                as libc::c_int
+            {
+                1 => {
+                    if self.flags & yajl_allow_multiple_values as libc::c_int as libc::c_uint != 0 {
+                        *(self.stateStack.stack).add((self.stateStack.used).wrapping_sub(1)) =
+                            yajl_state_got_value as u8;
+                    } else {
+                        if self.flags & yajl_allow_trailing_garbage as libc::c_uint != 0 {
+                            break;
+                        }
+                        if *offset == jsonTextLen {
+                            break;
+                        }
+                        tok = yajl_lex_lex(
+                            self.lexer,
+                            jsonText,
+                            jsonTextLen,
+                            offset,
+                            &mut buf,
+                            &mut bufLen,
+                        );
+                        if tok as libc::c_uint != yajl_tok_eof as libc::c_int as libc::c_uint {
+                            *(self.stateStack.stack).add(
+                                (self.stateStack.used).wrapping_sub(1 as libc::c_int as usize),
+                            ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
+                            self.parseError =
+                                b"trailing garbage\0" as *const u8 as *const libc::c_char;
+                        }
                     }
-                    if *offset == jsonTextLen {
-                        break;
-                    }
+                }
+                3 | 2 => return yajl_status_error,
+                0 | 12 | 6 | 11 | 9 => {
+                    let mut stateToPush: yajl_state = yajl_state_start;
                     tok = yajl_lex_lex(
-                        (*hand).lexer,
+                        self.lexer,
                         jsonText,
                         jsonTextLen,
                         offset,
                         &mut buf,
                         &mut bufLen,
                     );
-                    if tok as libc::c_uint != yajl_tok_eof as libc::c_int as libc::c_uint {
-                        *((*hand).stateStack.stack).add(
-                            ((*hand).stateStack.used).wrapping_sub(1 as libc::c_int as usize),
-                        ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
-                        (*hand).parseError =
-                            b"trailing garbage\0" as *const u8 as *const libc::c_char;
-                    }
-                }
-            }
-            3 | 2 => return yajl_status_error,
-            0 | 12 | 6 | 11 | 9 => {
-                let mut stateToPush: yajl_state = yajl_state_start;
-                tok = yajl_lex_lex(
-                    (*hand).lexer,
-                    jsonText,
-                    jsonTextLen,
-                    offset,
-                    &mut buf,
-                    &mut bufLen,
-                );
-                match tok as libc::c_uint {
-                    3 => return yajl_status_ok,
-                    4 => {
-                        *((*hand).stateStack.stack).add(
-                            ((*hand).stateStack.used).wrapping_sub(1 as libc::c_int as usize),
-                        ) = yajl_state_lexical_error as libc::c_int as libc::c_uchar;
-                        continue;
-                    }
-                    12 => {
-                        if !((*hand).callbacks).is_null()
-                            && ((*(*hand).callbacks).yajl_string).is_some()
-                            && ((*(*hand).callbacks).yajl_string)
-                                .expect("non-null function pointer")(
-                                (*hand).ctx, buf, bufLen
-                            ) == 0
-                        {
-                            *((*hand).stateStack.stack).add(
-                                ((*hand).stateStack.used).wrapping_sub(1 as libc::c_int as usize),
-                            ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
-                            (*hand).parseError =
-                                b"client cancelled parse via callback return value\0" as *const u8
-                                    as *const libc::c_char;
-                            return yajl_status_client_canceled;
-                        }
-                        current_block = 6407515180622463684;
-                    }
-                    13 => {
-                        if !((*hand).callbacks).is_null()
-                            && ((*(*hand).callbacks).yajl_string).is_some()
-                        {
-                            yajl_buf_clear((*hand).decodeBuf);
-                            yajl_string_decode((*hand).decodeBuf, buf, bufLen);
-                            if ((*(*hand).callbacks).yajl_string)
-                                .expect("non-null function pointer")(
-                                (*hand).ctx,
-                                yajl_buf_data((*hand).decodeBuf),
-                                yajl_buf_len((*hand).decodeBuf),
-                            ) == 0
-                            {
-                                *((*hand).stateStack.stack).add(
-                                    ((*hand).stateStack.used)
-                                        .wrapping_sub(1 as libc::c_int as usize),
-                                ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
-                                (*hand).parseError =
-                                    b"client cancelled parse via callback return value\0"
-                                        as *const u8
-                                        as *const libc::c_char;
-                                return yajl_status_client_canceled;
-                            }
-                        }
-                        current_block = 6407515180622463684;
-                    }
-                    0 => {
-                        if !((*hand).callbacks).is_null()
-                            && ((*(*hand).callbacks).yajl_boolean).is_some()
-                            && ((*(*hand).callbacks).yajl_boolean)
-                                .expect("non-null function pointer")(
-                                (*hand).ctx,
-                                (*buf as libc::c_int == 't' as i32) as libc::c_int,
-                            ) == 0
-                        {
-                            *((*hand).stateStack.stack).add(
-                                ((*hand).stateStack.used).wrapping_sub(1 as libc::c_int as usize),
-                            ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
-                            (*hand).parseError =
-                                b"client cancelled parse via callback return value\0" as *const u8
-                                    as *const libc::c_char;
-                            return yajl_status_client_canceled;
-                        }
-                        current_block = 6407515180622463684;
-                    }
-                    7 => {
-                        if !((*hand).callbacks).is_null()
-                            && ((*(*hand).callbacks).yajl_null).is_some()
-                            && ((*(*hand).callbacks).yajl_null).expect("non-null function pointer")(
-                                (*hand).ctx,
-                            ) == 0
-                        {
-                            *((*hand).stateStack.stack).add(
-                                ((*hand).stateStack.used).wrapping_sub(1 as libc::c_int as usize),
-                            ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
-                            (*hand).parseError =
-                                b"client cancelled parse via callback return value\0" as *const u8
-                                    as *const libc::c_char;
-                            return yajl_status_client_canceled;
-                        }
-                        current_block = 6407515180622463684;
-                    }
-                    6 => {
-                        if !((*hand).callbacks).is_null()
-                            && ((*(*hand).callbacks).yajl_start_map).is_some()
-                            && ((*(*hand).callbacks).yajl_start_map)
-                                .expect("non-null function pointer")(
-                                (*hand).ctx
-                            ) == 0
-                        {
-                            *((*hand).stateStack.stack).add(
-                                ((*hand).stateStack.used).wrapping_sub(1 as libc::c_int as usize),
-                            ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
-                            (*hand).parseError =
-                                b"client cancelled parse via callback return value\0" as *const u8
-                                    as *const libc::c_char;
-                            return yajl_status_client_canceled;
-                        }
-                        stateToPush = yajl_state_map_start;
-                        current_block = 6407515180622463684;
-                    }
-                    5 => {
-                        if !((*hand).callbacks).is_null()
-                            && ((*(*hand).callbacks).yajl_start_array).is_some()
-                            && ((*(*hand).callbacks).yajl_start_array)
-                                .expect("non-null function pointer")(
-                                (*hand).ctx
-                            ) == 0
-                        {
-                            *((*hand).stateStack.stack).add(
-                                ((*hand).stateStack.used).wrapping_sub(1 as libc::c_int as usize),
-                            ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
-                            (*hand).parseError =
-                                b"client cancelled parse via callback return value\0" as *const u8
-                                    as *const libc::c_char;
-                            return yajl_status_client_canceled;
-                        }
-                        stateToPush = yajl_state_array_start;
-                        current_block = 6407515180622463684;
-                    }
-                    10 => {
-                        if !((*hand).callbacks).is_null() {
-                            if ((*(*hand).callbacks).yajl_number).is_some() {
-                                if ((*(*hand).callbacks).yajl_number)
-                                    .expect("non-null function pointer")(
-                                    (*hand).ctx,
-                                    buf as *const libc::c_char,
-                                    bufLen,
-                                ) == 0
-                                {
-                                    *((*hand).stateStack.stack).add(
-                                        ((*hand).stateStack.used)
-                                            .wrapping_sub(1 as libc::c_int as usize),
-                                    ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
-                                    (*hand).parseError =
-                                        b"client cancelled parse via callback return value\0"
-                                            as *const u8
-                                            as *const libc::c_char;
-                                    return yajl_status_client_canceled;
-                                }
-                            } else if ((*(*hand).callbacks).yajl_integer).is_some() {
-                                let mut i: libc::c_longlong = 0 as libc::c_int as libc::c_longlong;
-                                set_last_error(0);
-                                i = yajl_parse_integer(buf, bufLen as libc::c_uint);
-                                if (i
-                                    == -(9223372036854775807 as libc::c_longlong)
-                                        - 1 as libc::c_longlong
-                                    || i == 9223372036854775807 as libc::c_longlong)
-                                    && get_last_error() == 34 as libc::c_int
-                                {
-                                    *((*hand).stateStack.stack).add(
-                                        ((*hand).stateStack.used)
-                                            .wrapping_sub(1 as libc::c_int as usize),
-                                    ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
-                                    (*hand).parseError =
-                                        b"integer overflow\0" as *const u8 as *const libc::c_char;
-                                    if *offset >= bufLen {
-                                        *offset = { *offset }.wrapping_sub(bufLen);
-                                    } else {
-                                        *offset = 0 as libc::c_int as usize;
-                                    }
-                                    continue;
-                                } else if ((*(*hand).callbacks).yajl_integer)
-                                    .expect("non-null function pointer")(
-                                    (*hand).ctx, i
-                                ) == 0
-                                {
-                                    *((*hand).stateStack.stack).add(
-                                        ((*hand).stateStack.used)
-                                            .wrapping_sub(1 as libc::c_int as usize),
-                                    ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
-                                    (*hand).parseError =
-                                        b"client cancelled parse via callback return value\0"
-                                            as *const u8
-                                            as *const libc::c_char;
-                                    return yajl_status_client_canceled;
-                                }
-                            }
-                            current_block = 6407515180622463684;
-                        } else {
-                            current_block = 6407515180622463684;
-                        }
-                    }
-                    11 => {
-                        if !((*hand).callbacks).is_null() {
-                            if ((*(*hand).callbacks).yajl_number).is_some() {
-                                if ((*(*hand).callbacks).yajl_number)
-                                    .expect("non-null function pointer")(
-                                    (*hand).ctx,
-                                    buf as *const libc::c_char,
-                                    bufLen,
-                                ) == 0
-                                {
-                                    *((*hand).stateStack.stack).add(
-                                        ((*hand).stateStack.used)
-                                            .wrapping_sub(1 as libc::c_int as usize),
-                                    ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
-                                    (*hand).parseError =
-                                        b"client cancelled parse via callback return value\0"
-                                            as *const u8
-                                            as *const libc::c_char;
-                                    return yajl_status_client_canceled;
-                                }
-                            } else if ((*(*hand).callbacks).yajl_double).is_some() {
-                                let mut d: libc::c_double = 0.0f64;
-                                yajl_buf_clear((*hand).decodeBuf);
-                                yajl_buf_append(
-                                    (*hand).decodeBuf,
-                                    buf as *const libc::c_void,
-                                    bufLen,
-                                );
-                                buf = yajl_buf_data((*hand).decodeBuf);
-                                set_last_error(0);
-                                d = libc::strtod(
-                                    buf as *mut libc::c_char,
-                                    std::ptr::null_mut::<*mut libc::c_char>(),
-                                );
-                                if d.is_infinite() && get_last_error() == 34 as libc::c_int {
-                                    *((*hand).stateStack.stack).add(
-                                        ((*hand).stateStack.used)
-                                            .wrapping_sub(1 as libc::c_int as usize),
-                                    ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
-                                    (*hand).parseError = b"numeric (floating point) overflow\0"
-                                        as *const u8
-                                        as *const libc::c_char;
-                                    if *offset >= bufLen {
-                                        *offset = { *offset }.wrapping_sub(bufLen);
-                                    } else {
-                                        *offset = 0 as libc::c_int as usize;
-                                    }
-                                    continue;
-                                } else if ((*(*hand).callbacks).yajl_double)
-                                    .expect("non-null function pointer")(
-                                    (*hand).ctx, d
-                                ) == 0
-                                {
-                                    *((*hand).stateStack.stack).add(
-                                        ((*hand).stateStack.used)
-                                            .wrapping_sub(1 as libc::c_int as usize),
-                                    ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
-                                    (*hand).parseError =
-                                        b"client cancelled parse via callback return value\0"
-                                            as *const u8
-                                            as *const libc::c_char;
-                                    return yajl_status_client_canceled;
-                                }
-                            }
-                            current_block = 6407515180622463684;
-                        } else {
-                            current_block = 6407515180622463684;
-                        }
-                    }
-                    8 => {
-                        if *((*hand).stateStack.stack)
-                            .add(((*hand).stateStack.used).wrapping_sub(1 as libc::c_int as usize))
-                            as libc::c_int
-                            == yajl_state_array_start as libc::c_int
-                        {
-                            if !((*hand).callbacks).is_null()
-                                && ((*(*hand).callbacks).yajl_end_array).is_some()
-                                && ((*(*hand).callbacks).yajl_end_array)
-                                    .expect("non-null function pointer")(
-                                    (*hand).ctx
-                                ) == 0
-                            {
-                                *((*hand).stateStack.stack).add(
-                                    ((*hand).stateStack.used)
-                                        .wrapping_sub(1 as libc::c_int as usize),
-                                ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
-                                (*hand).parseError =
-                                    b"client cancelled parse via callback return value\0"
-                                        as *const u8
-                                        as *const libc::c_char;
-                                return yajl_status_client_canceled;
-                            }
-                            (*hand).stateStack.used = ((*hand).stateStack.used).wrapping_sub(1);
+                    match tok as libc::c_uint {
+                        3 => return yajl_status_ok,
+                        4 => {
+                            *(self.stateStack.stack).add(
+                                (self.stateStack.used).wrapping_sub(1 as libc::c_int as usize),
+                            ) = yajl_state_lexical_error as libc::c_int as libc::c_uchar;
                             continue;
-                        } else {
+                        }
+                        12 => {
+                            if !(self.callbacks).is_null()
+                                && ((*self.callbacks).yajl_string).is_some()
+                                && ((*self.callbacks).yajl_string)
+                                    .expect("non-null function pointer")(
+                                    self.ctx, buf, bufLen
+                                ) == 0
+                            {
+                                *(self.stateStack.stack).add(
+                                    (self.stateStack.used).wrapping_sub(1 as libc::c_int as usize),
+                                ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
+                                self.parseError =
+                                    b"client cancelled parse via callback return value\0"
+                                        as *const u8
+                                        as *const libc::c_char;
+                                return yajl_status_client_canceled;
+                            }
+                            current_block = 6407515180622463684;
+                        }
+                        13 => {
+                            if !(self.callbacks).is_null()
+                                && ((*self.callbacks).yajl_string).is_some()
+                            {
+                                yajl_buf_clear(self.decodeBuf);
+                                yajl_string_decode(self.decodeBuf, buf, bufLen);
+                                if ((*self.callbacks).yajl_string)
+                                    .expect("non-null function pointer")(
+                                    self.ctx,
+                                    yajl_buf_data(self.decodeBuf),
+                                    yajl_buf_len(self.decodeBuf),
+                                ) == 0
+                                {
+                                    *(self.stateStack.stack).add(
+                                        (self.stateStack.used)
+                                            .wrapping_sub(1 as libc::c_int as usize),
+                                    ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
+                                    self.parseError =
+                                        b"client cancelled parse via callback return value\0"
+                                            as *const u8
+                                            as *const libc::c_char;
+                                    return yajl_status_client_canceled;
+                                }
+                            }
+                            current_block = 6407515180622463684;
+                        }
+                        0 => {
+                            if !(self.callbacks).is_null()
+                                && ((*self.callbacks).yajl_boolean).is_some()
+                                && ((*self.callbacks).yajl_boolean)
+                                    .expect("non-null function pointer")(
+                                    self.ctx,
+                                    (*buf as libc::c_int == 't' as i32) as libc::c_int,
+                                ) == 0
+                            {
+                                *(self.stateStack.stack).add(
+                                    (self.stateStack.used).wrapping_sub(1 as libc::c_int as usize),
+                                ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
+                                self.parseError =
+                                    b"client cancelled parse via callback return value\0"
+                                        as *const u8
+                                        as *const libc::c_char;
+                                return yajl_status_client_canceled;
+                            }
+                            current_block = 6407515180622463684;
+                        }
+                        7 => {
+                            if !(self.callbacks).is_null()
+                                && ((*self.callbacks).yajl_null).is_some()
+                                && ((*self.callbacks).yajl_null).expect("non-null function pointer")(
+                                    self.ctx,
+                                ) == 0
+                            {
+                                *(self.stateStack.stack).add(
+                                    (self.stateStack.used).wrapping_sub(1 as libc::c_int as usize),
+                                ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
+                                self.parseError =
+                                    b"client cancelled parse via callback return value\0"
+                                        as *const u8
+                                        as *const libc::c_char;
+                                return yajl_status_client_canceled;
+                            }
+                            current_block = 6407515180622463684;
+                        }
+                        6 => {
+                            if !(self.callbacks).is_null()
+                                && ((*self.callbacks).yajl_start_map).is_some()
+                                && ((*self.callbacks).yajl_start_map)
+                                    .expect("non-null function pointer")(
+                                    self.ctx
+                                ) == 0
+                            {
+                                *(self.stateStack.stack).add(
+                                    (self.stateStack.used).wrapping_sub(1 as libc::c_int as usize),
+                                ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
+                                self.parseError =
+                                    b"client cancelled parse via callback return value\0"
+                                        as *const u8
+                                        as *const libc::c_char;
+                                return yajl_status_client_canceled;
+                            }
+                            stateToPush = yajl_state_map_start;
+                            current_block = 6407515180622463684;
+                        }
+                        5 => {
+                            if !(self.callbacks).is_null()
+                                && ((*self.callbacks).yajl_start_array).is_some()
+                                && ((*self.callbacks).yajl_start_array)
+                                    .expect("non-null function pointer")(
+                                    self.ctx
+                                ) == 0
+                            {
+                                *(self.stateStack.stack).add(
+                                    (self.stateStack.used).wrapping_sub(1 as libc::c_int as usize),
+                                ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
+                                self.parseError =
+                                    b"client cancelled parse via callback return value\0"
+                                        as *const u8
+                                        as *const libc::c_char;
+                                return yajl_status_client_canceled;
+                            }
+                            stateToPush = yajl_state_array_start;
+                            current_block = 6407515180622463684;
+                        }
+                        10 => {
+                            if !(self.callbacks).is_null() {
+                                if ((*self.callbacks).yajl_number).is_some() {
+                                    if ((*self.callbacks).yajl_number)
+                                        .expect("non-null function pointer")(
+                                        self.ctx,
+                                        buf as *const libc::c_char,
+                                        bufLen,
+                                    ) == 0
+                                    {
+                                        *(self.stateStack.stack).add(
+                                            (self.stateStack.used)
+                                                .wrapping_sub(1 as libc::c_int as usize),
+                                        ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
+                                        self.parseError =
+                                            b"client cancelled parse via callback return value\0"
+                                                as *const u8
+                                                as *const libc::c_char;
+                                        return yajl_status_client_canceled;
+                                    }
+                                } else if ((*self.callbacks).yajl_integer).is_some() {
+                                    let mut i: libc::c_longlong =
+                                        0 as libc::c_int as libc::c_longlong;
+                                    set_last_error(0);
+                                    i = yajl_parse_integer(buf, bufLen as libc::c_uint);
+                                    if (i
+                                        == -(9223372036854775807 as libc::c_longlong)
+                                            - 1 as libc::c_longlong
+                                        || i == 9223372036854775807 as libc::c_longlong)
+                                        && get_last_error() == 34 as libc::c_int
+                                    {
+                                        *(self.stateStack.stack).add(
+                                            (self.stateStack.used)
+                                                .wrapping_sub(1 as libc::c_int as usize),
+                                        ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
+                                        self.parseError = b"integer overflow\0" as *const u8
+                                            as *const libc::c_char;
+                                        if *offset >= bufLen {
+                                            *offset = { *offset }.wrapping_sub(bufLen);
+                                        } else {
+                                            *offset = 0 as libc::c_int as usize;
+                                        }
+                                        continue;
+                                    } else if ((*self.callbacks).yajl_integer)
+                                        .expect("non-null function pointer")(
+                                        self.ctx, i
+                                    ) == 0
+                                    {
+                                        *(self.stateStack.stack).add(
+                                            (self.stateStack.used)
+                                                .wrapping_sub(1 as libc::c_int as usize),
+                                        ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
+                                        self.parseError =
+                                            b"client cancelled parse via callback return value\0"
+                                                as *const u8
+                                                as *const libc::c_char;
+                                        return yajl_status_client_canceled;
+                                    }
+                                }
+                                current_block = 6407515180622463684;
+                            } else {
+                                current_block = 6407515180622463684;
+                            }
+                        }
+                        11 => {
+                            if !(self.callbacks).is_null() {
+                                if ((*self.callbacks).yajl_number).is_some() {
+                                    if ((*self.callbacks).yajl_number)
+                                        .expect("non-null function pointer")(
+                                        self.ctx,
+                                        buf as *const libc::c_char,
+                                        bufLen,
+                                    ) == 0
+                                    {
+                                        *(self.stateStack.stack).add(
+                                            (self.stateStack.used)
+                                                .wrapping_sub(1 as libc::c_int as usize),
+                                        ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
+                                        self.parseError =
+                                            b"client cancelled parse via callback return value\0"
+                                                as *const u8
+                                                as *const libc::c_char;
+                                        return yajl_status_client_canceled;
+                                    }
+                                } else if ((*self.callbacks).yajl_double).is_some() {
+                                    let mut d: libc::c_double = 0.0f64;
+                                    yajl_buf_clear(self.decodeBuf);
+                                    yajl_buf_append(
+                                        self.decodeBuf,
+                                        buf as *const libc::c_void,
+                                        bufLen,
+                                    );
+                                    buf = yajl_buf_data(self.decodeBuf);
+                                    set_last_error(0);
+                                    d = libc::strtod(
+                                        buf as *mut libc::c_char,
+                                        std::ptr::null_mut::<*mut libc::c_char>(),
+                                    );
+                                    if d.is_infinite() && get_last_error() == 34 as libc::c_int {
+                                        *(self.stateStack.stack).add(
+                                            (self.stateStack.used)
+                                                .wrapping_sub(1 as libc::c_int as usize),
+                                        ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
+                                        self.parseError = b"numeric (floating point) overflow\0"
+                                            as *const u8
+                                            as *const libc::c_char;
+                                        if *offset >= bufLen {
+                                            *offset = { *offset }.wrapping_sub(bufLen);
+                                        } else {
+                                            *offset = 0 as libc::c_int as usize;
+                                        }
+                                        continue;
+                                    } else if ((*self.callbacks).yajl_double)
+                                        .expect("non-null function pointer")(
+                                        self.ctx, d
+                                    ) == 0
+                                    {
+                                        *(self.stateStack.stack).add(
+                                            (self.stateStack.used)
+                                                .wrapping_sub(1 as libc::c_int as usize),
+                                        ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
+                                        self.parseError =
+                                            b"client cancelled parse via callback return value\0"
+                                                as *const u8
+                                                as *const libc::c_char;
+                                        return yajl_status_client_canceled;
+                                    }
+                                }
+                                current_block = 6407515180622463684;
+                            } else {
+                                current_block = 6407515180622463684;
+                            }
+                        }
+                        8 => {
+                            if *(self.stateStack.stack)
+                                .add((self.stateStack.used).wrapping_sub(1 as libc::c_int as usize))
+                                as libc::c_int
+                                == yajl_state_array_start as libc::c_int
+                            {
+                                if !(self.callbacks).is_null()
+                                    && ((*self.callbacks).yajl_end_array).is_some()
+                                    && ((*self.callbacks).yajl_end_array)
+                                        .expect("non-null function pointer")(
+                                        self.ctx
+                                    ) == 0
+                                {
+                                    *(self.stateStack.stack).add(
+                                        (self.stateStack.used)
+                                            .wrapping_sub(1 as libc::c_int as usize),
+                                    ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
+                                    self.parseError =
+                                        b"client cancelled parse via callback return value\0"
+                                            as *const u8
+                                            as *const libc::c_char;
+                                    return yajl_status_client_canceled;
+                                }
+                                self.stateStack.used = (self.stateStack.used).wrapping_sub(1);
+                                continue;
+                            } else {
+                                current_block = 13495271385072242379;
+                            }
+                        }
+                        1 | 2 | 9 => {
                             current_block = 13495271385072242379;
                         }
-                    }
-                    1 | 2 | 9 => {
-                        current_block = 13495271385072242379;
-                    }
-                    _ => {
-                        *((*hand).stateStack.stack).add(
-                            ((*hand).stateStack.used).wrapping_sub(1 as libc::c_int as usize),
-                        ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
-                        (*hand).parseError =
-                            b"invalid token, internal error\0" as *const u8 as *const libc::c_char;
-                        continue;
-                    }
-                }
-                match current_block {
-                    6407515180622463684 => {
-                        let mut s: yajl_state = *((*hand).stateStack.stack)
-                            .add(((*hand).stateStack.used).wrapping_sub(1 as libc::c_int as usize))
-                            as yajl_state;
-                        if s as libc::c_uint == yajl_state_start as libc::c_int as libc::c_uint
-                            || s as libc::c_uint
-                                == yajl_state_got_value as libc::c_int as libc::c_uint
-                        {
-                            *((*hand).stateStack.stack).add(
-                                ((*hand).stateStack.used).wrapping_sub(1 as libc::c_int as usize),
-                            ) = yajl_state_parse_complete as libc::c_int as libc::c_uchar;
-                        } else if s as libc::c_uint
-                            == yajl_state_map_need_val as libc::c_int as libc::c_uint
-                        {
-                            *((*hand).stateStack.stack).add(
-                                ((*hand).stateStack.used).wrapping_sub(1 as libc::c_int as usize),
-                            ) = yajl_state_map_got_val as libc::c_int as libc::c_uchar;
-                        } else {
-                            *((*hand).stateStack.stack).add(
-                                ((*hand).stateStack.used).wrapping_sub(1 as libc::c_int as usize),
-                            ) = yajl_state_array_got_val as libc::c_int as libc::c_uchar;
-                        }
-                        if stateToPush as libc::c_uint
-                            != yajl_state_start as libc::c_int as libc::c_uint
-                        {
-                            if ((*hand).stateStack.size).wrapping_sub((*hand).stateStack.used)
-                                == 0 as libc::c_int as usize
-                            {
-                                (*hand).stateStack.size = (*hand)
-                                    .stateStack
-                                    .size
-                                    .wrapping_add(128 as libc::c_int as usize);
-                                (*hand).stateStack.stack = ((*(*hand).stateStack.yaf).realloc)
-                                    .expect("non-null function pointer")(
-                                    (*(*hand).stateStack.yaf).ctx,
-                                    (*hand).stateStack.stack as *mut libc::c_void,
-                                    (*hand).stateStack.size,
-                                )
-                                    as *mut libc::c_uchar;
-                            }
-                            let fresh2 = (*hand).stateStack.used;
-                            (*hand).stateStack.used = ((*hand).stateStack.used).wrapping_add(1);
-                            *((*hand).stateStack.stack).add(fresh2) = stateToPush as libc::c_uchar;
-                        }
-                    }
-                    _ => {
-                        *((*hand).stateStack.stack).add(
-                            ((*hand).stateStack.used).wrapping_sub(1 as libc::c_int as usize),
-                        ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
-                        (*hand).parseError = b"unallowed token at this point in JSON text\0"
-                            as *const u8
-                            as *const libc::c_char;
-                    }
-                }
-            }
-            4 | 8 => {
-                tok = yajl_lex_lex(
-                    (*hand).lexer,
-                    jsonText,
-                    jsonTextLen,
-                    offset,
-                    &mut buf,
-                    &mut bufLen,
-                );
-                match tok as libc::c_uint {
-                    3 => return yajl_status_ok,
-                    4 => {
-                        *((*hand).stateStack.stack).add(
-                            ((*hand).stateStack.used).wrapping_sub(1 as libc::c_int as usize),
-                        ) = yajl_state_lexical_error as libc::c_int as libc::c_uchar;
-                        continue;
-                    }
-                    13 => {
-                        if !((*hand).callbacks).is_null()
-                            && ((*(*hand).callbacks).yajl_map_key).is_some()
-                        {
-                            yajl_buf_clear((*hand).decodeBuf);
-                            yajl_string_decode((*hand).decodeBuf, buf, bufLen);
-                            buf = yajl_buf_data((*hand).decodeBuf);
-                            bufLen = yajl_buf_len((*hand).decodeBuf);
-                        }
-                        current_block = 5544887021832600539;
-                    }
-                    12 => {
-                        current_block = 5544887021832600539;
-                    }
-                    9 => {
-                        if *((*hand).stateStack.stack)
-                            .add(((*hand).stateStack.used).wrapping_sub(1 as libc::c_int as usize))
-                            as libc::c_int
-                            == yajl_state_map_start as libc::c_int
-                        {
-                            if !((*hand).callbacks).is_null()
-                                && ((*(*hand).callbacks).yajl_end_map).is_some()
-                                && ((*(*hand).callbacks).yajl_end_map)
-                                    .expect("non-null function pointer")(
-                                    (*hand).ctx
-                                ) == 0
-                            {
-                                *((*hand).stateStack.stack).add(
-                                    ((*hand).stateStack.used)
-                                        .wrapping_sub(1 as libc::c_int as usize),
-                                ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
-                                (*hand).parseError =
-                                    b"client cancelled parse via callback return value\0"
-                                        as *const u8
-                                        as *const libc::c_char;
-                                return yajl_status_client_canceled;
-                            }
-                            (*hand).stateStack.used = ((*hand).stateStack.used).wrapping_sub(1);
+                        _ => {
+                            *(self.stateStack.stack).add(
+                                (self.stateStack.used).wrapping_sub(1 as libc::c_int as usize),
+                            ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
+                            self.parseError = b"invalid token, internal error\0" as *const u8
+                                as *const libc::c_char;
                             continue;
-                        } else {
+                        }
+                    }
+                    match current_block {
+                        6407515180622463684 => {
+                            let mut s: yajl_state = *(self.stateStack.stack)
+                                .add((self.stateStack.used).wrapping_sub(1 as libc::c_int as usize))
+                                as yajl_state;
+                            if s as libc::c_uint == yajl_state_start as libc::c_int as libc::c_uint
+                                || s as libc::c_uint
+                                    == yajl_state_got_value as libc::c_int as libc::c_uint
+                            {
+                                *(self.stateStack.stack).add(
+                                    (self.stateStack.used).wrapping_sub(1 as libc::c_int as usize),
+                                ) = yajl_state_parse_complete as libc::c_int as libc::c_uchar;
+                            } else if s as libc::c_uint
+                                == yajl_state_map_need_val as libc::c_int as libc::c_uint
+                            {
+                                *(self.stateStack.stack).add(
+                                    (self.stateStack.used).wrapping_sub(1 as libc::c_int as usize),
+                                ) = yajl_state_map_got_val as libc::c_int as libc::c_uchar;
+                            } else {
+                                *(self.stateStack.stack).add(
+                                    (self.stateStack.used).wrapping_sub(1 as libc::c_int as usize),
+                                ) = yajl_state_array_got_val as libc::c_int as libc::c_uchar;
+                            }
+                            if stateToPush as libc::c_uint
+                                != yajl_state_start as libc::c_int as libc::c_uint
+                            {
+                                if (self.stateStack.size).wrapping_sub(self.stateStack.used)
+                                    == 0 as libc::c_int as usize
+                                {
+                                    self.stateStack.size = self
+                                        .stateStack
+                                        .size
+                                        .wrapping_add(128 as libc::c_int as usize);
+                                    self.stateStack.stack = ((*self.stateStack.yaf).realloc)
+                                        .expect("non-null function pointer")(
+                                        (*self.stateStack.yaf).ctx,
+                                        self.stateStack.stack as *mut libc::c_void,
+                                        self.stateStack.size,
+                                    )
+                                        as *mut libc::c_uchar;
+                                }
+                                let fresh2 = self.stateStack.used;
+                                self.stateStack.used = (self.stateStack.used).wrapping_add(1);
+                                *(self.stateStack.stack).add(fresh2) = stateToPush as libc::c_uchar;
+                            }
+                        }
+                        _ => {
+                            *(self.stateStack.stack).add((self.stateStack.used).wrapping_sub(1)) =
+                                yajl_state_parse_error as u8;
+                            self.parseError = b"unallowed token at this point in JSON text\0"
+                                as *const u8
+                                as *const libc::c_char;
+                        }
+                    }
+                }
+                4 | 8 => {
+                    tok = yajl_lex_lex(
+                        self.lexer,
+                        jsonText,
+                        jsonTextLen,
+                        offset,
+                        &mut buf,
+                        &mut bufLen,
+                    );
+                    match tok as libc::c_uint {
+                        3 => return yajl_status_ok,
+                        4 => {
+                            *(self.stateStack.stack).add(
+                                (self.stateStack.used).wrapping_sub(1 as libc::c_int as usize),
+                            ) = yajl_state_lexical_error as libc::c_int as libc::c_uchar;
+                            continue;
+                        }
+                        13 => {
+                            if !(self.callbacks).is_null()
+                                && ((*self.callbacks).yajl_map_key).is_some()
+                            {
+                                yajl_buf_clear(self.decodeBuf);
+                                yajl_string_decode(self.decodeBuf, buf, bufLen);
+                                buf = yajl_buf_data(self.decodeBuf);
+                                bufLen = yajl_buf_len(self.decodeBuf);
+                            }
+                            current_block = 5544887021832600539;
+                        }
+                        12 => {
+                            current_block = 5544887021832600539;
+                        }
+                        9 => {
+                            if *(self.stateStack.stack)
+                                .add((self.stateStack.used).wrapping_sub(1 as libc::c_int as usize))
+                                as libc::c_int
+                                == yajl_state_map_start as libc::c_int
+                            {
+                                if !(self.callbacks).is_null()
+                                    && ((*self.callbacks).yajl_end_map).is_some()
+                                    && ((*self.callbacks).yajl_end_map)
+                                        .expect("non-null function pointer")(
+                                        self.ctx
+                                    ) == 0
+                                {
+                                    *(self.stateStack.stack).add(
+                                        (self.stateStack.used)
+                                            .wrapping_sub(1 as libc::c_int as usize),
+                                    ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
+                                    self.parseError =
+                                        b"client cancelled parse via callback return value\0"
+                                            as *const u8
+                                            as *const libc::c_char;
+                                    return yajl_status_client_canceled;
+                                }
+                                self.stateStack.used = (self.stateStack.used).wrapping_sub(1);
+                                continue;
+                            } else {
+                                current_block = 17513148302838498461;
+                            }
+                        }
+                        _ => {
                             current_block = 17513148302838498461;
                         }
                     }
-                    _ => {
-                        current_block = 17513148302838498461;
-                    }
-                }
-                match current_block {
-                    5544887021832600539 => {
-                        if !((*hand).callbacks).is_null()
-                            && ((*(*hand).callbacks).yajl_map_key).is_some()
-                            && ((*(*hand).callbacks).yajl_map_key)
-                                .expect("non-null function pointer")(
-                                (*hand).ctx, buf, bufLen
-                            ) == 0
-                        {
-                            *((*hand).stateStack.stack).add(
-                                ((*hand).stateStack.used).wrapping_sub(1 as libc::c_int as usize),
-                            ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
-                            (*hand).parseError =
-                                b"client cancelled parse via callback return value\0" as *const u8
-                                    as *const libc::c_char;
-                            return yajl_status_client_canceled;
+                    match current_block {
+                        5544887021832600539 => {
+                            if !(self.callbacks).is_null()
+                                && ((*self.callbacks).yajl_map_key).is_some()
+                                && ((*self.callbacks).yajl_map_key)
+                                    .expect("non-null function pointer")(
+                                    self.ctx, buf, bufLen
+                                ) == 0
+                            {
+                                *(self.stateStack.stack).add(
+                                    (self.stateStack.used).wrapping_sub(1 as libc::c_int as usize),
+                                ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
+                                self.parseError =
+                                    b"client cancelled parse via callback return value\0"
+                                        as *const u8
+                                        as *const libc::c_char;
+                                return yajl_status_client_canceled;
+                            }
+                            *(self.stateStack.stack).add(
+                                (self.stateStack.used).wrapping_sub(1 as libc::c_int as usize),
+                            ) = yajl_state_map_sep as libc::c_int as libc::c_uchar;
                         }
-                        *((*hand).stateStack.stack).add(
-                            ((*hand).stateStack.used).wrapping_sub(1 as libc::c_int as usize),
-                        ) = yajl_state_map_sep as libc::c_int as libc::c_uchar;
-                    }
-                    _ => {
-                        *((*hand).stateStack.stack).add(
-                            ((*hand).stateStack.used).wrapping_sub(1 as libc::c_int as usize),
-                        ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
-                        (*hand).parseError = b"invalid object key (must be a string)\0" as *const u8
-                            as *const libc::c_char;
-                    }
-                }
-            }
-            5 => {
-                tok = yajl_lex_lex(
-                    (*hand).lexer,
-                    jsonText,
-                    jsonTextLen,
-                    offset,
-                    &mut buf,
-                    &mut bufLen,
-                );
-                match tok as libc::c_uint {
-                    1 => {
-                        *((*hand).stateStack.stack).add(
-                            ((*hand).stateStack.used).wrapping_sub(1 as libc::c_int as usize),
-                        ) = yajl_state_map_need_val as libc::c_int as libc::c_uchar;
-                    }
-                    3 => return yajl_status_ok,
-                    4 => {
-                        *((*hand).stateStack.stack).add(
-                            ((*hand).stateStack.used).wrapping_sub(1 as libc::c_int as usize),
-                        ) = yajl_state_lexical_error as libc::c_int as libc::c_uchar;
-                    }
-                    _ => {
-                        *((*hand).stateStack.stack).add(
-                            ((*hand).stateStack.used).wrapping_sub(1 as libc::c_int as usize),
-                        ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
-                        (*hand).parseError =
-                            b"object key and value must be separated by a colon (':')\0"
-                                as *const u8 as *const libc::c_char;
-                    }
-                }
-            }
-            7 => {
-                tok = yajl_lex_lex(
-                    (*hand).lexer,
-                    jsonText,
-                    jsonTextLen,
-                    offset,
-                    &mut buf,
-                    &mut bufLen,
-                );
-                match tok as libc::c_uint {
-                    9 => {
-                        if !((*hand).callbacks).is_null()
-                            && ((*(*hand).callbacks).yajl_end_map).is_some()
-                            && ((*(*hand).callbacks).yajl_end_map)
-                                .expect("non-null function pointer")(
-                                (*hand).ctx
-                            ) == 0
-                        {
-                            *((*hand).stateStack.stack).add(
-                                ((*hand).stateStack.used).wrapping_sub(1 as libc::c_int as usize),
+                        _ => {
+                            *(self.stateStack.stack).add(
+                                (self.stateStack.used).wrapping_sub(1 as libc::c_int as usize),
                             ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
-                            (*hand).parseError =
-                                b"client cancelled parse via callback return value\0" as *const u8
-                                    as *const libc::c_char;
-                            return yajl_status_client_canceled;
-                        }
-                        (*hand).stateStack.used = ((*hand).stateStack.used).wrapping_sub(1);
-                    }
-                    2 => {
-                        *((*hand).stateStack.stack).add(
-                            ((*hand).stateStack.used).wrapping_sub(1 as libc::c_int as usize),
-                        ) = yajl_state_map_need_key as libc::c_int as libc::c_uchar;
-                    }
-                    3 => return yajl_status_ok,
-                    4 => {
-                        *((*hand).stateStack.stack).add(
-                            ((*hand).stateStack.used).wrapping_sub(1 as libc::c_int as usize),
-                        ) = yajl_state_lexical_error as libc::c_int as libc::c_uchar;
-                    }
-                    _ => {
-                        *((*hand).stateStack.stack).add(
-                            ((*hand).stateStack.used).wrapping_sub(1 as libc::c_int as usize),
-                        ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
-                        (*hand).parseError =
-                            b"after key and value, inside map, I expect ',' or '}'\0" as *const u8
+                            self.parseError = b"invalid object key (must be a string)\0"
+                                as *const u8
                                 as *const libc::c_char;
-                        if *offset >= bufLen {
-                            *offset = { *offset }.wrapping_sub(bufLen);
-                        } else {
-                            *offset = 0 as libc::c_int as usize;
                         }
                     }
                 }
-            }
-            10 => {
-                tok = yajl_lex_lex(
-                    (*hand).lexer,
-                    jsonText,
-                    jsonTextLen,
-                    offset,
-                    &mut buf,
-                    &mut bufLen,
-                );
-                match tok as libc::c_uint {
-                    8 => {
-                        if !((*hand).callbacks).is_null()
-                            && ((*(*hand).callbacks).yajl_end_array).is_some()
-                            && ((*(*hand).callbacks).yajl_end_array)
-                                .expect("non-null function pointer")(
-                                (*hand).ctx
-                            ) == 0
-                        {
-                            *((*hand).stateStack.stack).add(
-                                ((*hand).stateStack.used).wrapping_sub(1 as libc::c_int as usize),
+                5 => {
+                    tok = yajl_lex_lex(
+                        self.lexer,
+                        jsonText,
+                        jsonTextLen,
+                        offset,
+                        &mut buf,
+                        &mut bufLen,
+                    );
+                    match tok as libc::c_uint {
+                        1 => {
+                            *(self.stateStack.stack).add(
+                                (self.stateStack.used).wrapping_sub(1 as libc::c_int as usize),
+                            ) = yajl_state_map_need_val as libc::c_int as libc::c_uchar;
+                        }
+                        3 => return yajl_status_ok,
+                        4 => {
+                            *(self.stateStack.stack).add(
+                                (self.stateStack.used).wrapping_sub(1 as libc::c_int as usize),
+                            ) = yajl_state_lexical_error as libc::c_int as libc::c_uchar;
+                        }
+                        _ => {
+                            *(self.stateStack.stack).add(
+                                (self.stateStack.used).wrapping_sub(1 as libc::c_int as usize),
                             ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
-                            (*hand).parseError =
-                                b"client cancelled parse via callback return value\0" as *const u8
+                            self.parseError =
+                                b"object key and value must be separated by a colon (':')\0"
+                                    as *const u8
                                     as *const libc::c_char;
-                            return yajl_status_client_canceled;
                         }
-                        (*hand).stateStack.used = ((*hand).stateStack.used).wrapping_sub(1);
-                    }
-                    2 => {
-                        *((*hand).stateStack.stack).add(
-                            ((*hand).stateStack.used).wrapping_sub(1 as libc::c_int as usize),
-                        ) = yajl_state_array_need_val as libc::c_int as libc::c_uchar;
-                    }
-                    3 => return yajl_status_ok,
-                    4 => {
-                        *((*hand).stateStack.stack).add(
-                            ((*hand).stateStack.used).wrapping_sub(1 as libc::c_int as usize),
-                        ) = yajl_state_lexical_error as libc::c_int as libc::c_uchar;
-                    }
-                    _ => {
-                        *((*hand).stateStack.stack).add(
-                            ((*hand).stateStack.used).wrapping_sub(1 as libc::c_int as usize),
-                        ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
-                        (*hand).parseError = b"after array element, I expect ',' or ']'\0"
-                            as *const u8
-                            as *const libc::c_char;
                     }
                 }
-            }
-            _ => {
-                libc::abort();
+                7 => {
+                    tok = yajl_lex_lex(
+                        self.lexer,
+                        jsonText,
+                        jsonTextLen,
+                        offset,
+                        &mut buf,
+                        &mut bufLen,
+                    );
+                    match tok as libc::c_uint {
+                        9 => {
+                            if !(self.callbacks).is_null()
+                                && ((*self.callbacks).yajl_end_map).is_some()
+                                && ((*self.callbacks).yajl_end_map)
+                                    .expect("non-null function pointer")(
+                                    self.ctx
+                                ) == 0
+                            {
+                                *(self.stateStack.stack).add(
+                                    (self.stateStack.used).wrapping_sub(1 as libc::c_int as usize),
+                                ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
+                                self.parseError =
+                                    b"client cancelled parse via callback return value\0"
+                                        as *const u8
+                                        as *const libc::c_char;
+                                return yajl_status_client_canceled;
+                            }
+                            self.stateStack.used = (self.stateStack.used).wrapping_sub(1);
+                        }
+                        2 => {
+                            *(self.stateStack.stack).add(
+                                (self.stateStack.used).wrapping_sub(1 as libc::c_int as usize),
+                            ) = yajl_state_map_need_key as libc::c_int as libc::c_uchar;
+                        }
+                        3 => return yajl_status_ok,
+                        4 => {
+                            *(self.stateStack.stack).add(
+                                (self.stateStack.used).wrapping_sub(1 as libc::c_int as usize),
+                            ) = yajl_state_lexical_error as libc::c_int as libc::c_uchar;
+                        }
+                        _ => {
+                            *(self.stateStack.stack).add(
+                                (self.stateStack.used).wrapping_sub(1 as libc::c_int as usize),
+                            ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
+                            self.parseError =
+                                b"after key and value, inside map, I expect ',' or '}'\0"
+                                    as *const u8
+                                    as *const libc::c_char;
+                            if *offset >= bufLen {
+                                *offset = { *offset }.wrapping_sub(bufLen);
+                            } else {
+                                *offset = 0 as libc::c_int as usize;
+                            }
+                        }
+                    }
+                }
+                10 => {
+                    tok = yajl_lex_lex(
+                        self.lexer,
+                        jsonText,
+                        jsonTextLen,
+                        offset,
+                        &mut buf,
+                        &mut bufLen,
+                    );
+                    match tok as libc::c_uint {
+                        8 => {
+                            if !(self.callbacks).is_null()
+                                && ((*self.callbacks).yajl_end_array).is_some()
+                                && ((*self.callbacks).yajl_end_array)
+                                    .expect("non-null function pointer")(
+                                    self.ctx
+                                ) == 0
+                            {
+                                *(self.stateStack.stack).add(
+                                    (self.stateStack.used).wrapping_sub(1 as libc::c_int as usize),
+                                ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
+                                self.parseError =
+                                    b"client cancelled parse via callback return value\0"
+                                        as *const u8
+                                        as *const libc::c_char;
+                                return yajl_status_client_canceled;
+                            }
+                            self.stateStack.used = (self.stateStack.used).wrapping_sub(1);
+                        }
+                        2 => {
+                            *(self.stateStack.stack).add(
+                                (self.stateStack.used).wrapping_sub(1 as libc::c_int as usize),
+                            ) = yajl_state_array_need_val as libc::c_int as libc::c_uchar;
+                        }
+                        3 => return yajl_status_ok,
+                        4 => {
+                            *(self.stateStack.stack).add(
+                                (self.stateStack.used).wrapping_sub(1 as libc::c_int as usize),
+                            ) = yajl_state_lexical_error as libc::c_int as libc::c_uchar;
+                        }
+                        _ => {
+                            *(self.stateStack.stack).add(
+                                (self.stateStack.used).wrapping_sub(1 as libc::c_int as usize),
+                            ) = yajl_state_parse_error as libc::c_int as libc::c_uchar;
+                            self.parseError = b"after array element, I expect ',' or ']'\0"
+                                as *const u8
+                                as *const libc::c_char;
+                        }
+                    }
+                }
+                _ => {
+                    libc::abort();
+                }
             }
         }
+        yajl_status_ok
     }
-    yajl_status_ok
 }

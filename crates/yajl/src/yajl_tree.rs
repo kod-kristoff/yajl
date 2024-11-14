@@ -1,16 +1,15 @@
 #![allow(clippy::missing_safety_doc)]
 #![allow(unused_unsafe)]
 #![allow(clippy::nonminimal_bool)]
-use std::ptr::{addr_of, null_mut};
+use core::ptr;
 
 use ::libc;
 
 use crate::{
-    yajl::{yajl_complete_parse, yajl_config, yajl_get_error},
+    yajl::{yajl_config, yajl_get_error},
     yajl_alloc::yajl_alloc_funcs,
     yajl_buf::yajl_buf_t,
     yajl_lex::yajl_lexer_t,
-    yajl_parse,
     yajl_parser::{yajl_callbacks, yajl_handle_t, yajl_parse_integer},
 };
 // extern "C" {
@@ -631,7 +630,7 @@ pub unsafe extern "C" fn yajl_tree_parse(
             }
         }
     };
-    let mut handle: yajl_handle = std::ptr::null_mut::<yajl_handle_t>();
+    let mut handle: yajl_handle = ptr::null_mut::<yajl_handle_t>();
     let mut status: yajl_status = yajl_status_ok;
     let mut internal_err_str: *mut libc::c_char = std::ptr::null_mut::<libc::c_char>();
     let mut ctx: context_t = {
@@ -651,13 +650,14 @@ pub unsafe extern "C" fn yajl_tree_parse(
         // );
     }
     handle = yajl_handle_t::alloc(
-        addr_of!(callbacks),
+        ptr::addr_of!(callbacks),
         std::ptr::null_mut::<yajl_alloc_funcs>(),
         &mut ctx as *mut context_t as *mut libc::c_void,
     );
-    yajl_config(handle, yajl_allow_comments, 1 as libc::c_int);
-    status = yajl_parse(handle, input as *mut libc::c_uchar, libc::strlen(input));
-    status = yajl_complete_parse(handle);
+    let hand = unsafe { &mut *handle };
+    hand.config(yajl_allow_comments, 1 as libc::c_int);
+    status = hand.parse(input as *mut libc::c_uchar, libc::strlen(input));
+    status = hand.complete_parse();
     if status as libc::c_uint != yajl_status_ok as libc::c_int as libc::c_uint {
         if !error_buffer.is_null() && error_buffer_size > 0 as libc::c_int as usize {
             internal_err_str = yajl_get_error(
@@ -739,7 +739,7 @@ pub unsafe extern "C" fn yajl_tree_free(mut v: yajl_val) {
     {
         &mut (*v).u.object as *mut C2RustUnnamed_1
     } else {
-        null_mut::<C2RustUnnamed_1>()
+        ptr::null_mut::<C2RustUnnamed_1>()
     }
     .is_null()
     {
@@ -749,7 +749,7 @@ pub unsafe extern "C" fn yajl_tree_free(mut v: yajl_val) {
     {
         &mut (*v).u.array as *mut C2RustUnnamed_0
     } else {
-        null_mut::<C2RustUnnamed_0>()
+        ptr::null_mut::<C2RustUnnamed_0>()
     }
     .is_null()
     {
