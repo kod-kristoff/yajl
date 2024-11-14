@@ -1,4 +1,4 @@
-use ::libc;
+use core::ffi::{c_uchar, c_void};
 
 use crate::yajl_alloc::yajl_alloc_funcs;
 
@@ -7,30 +7,30 @@ use crate::yajl_alloc::yajl_alloc_funcs;
 pub struct yajl_buf_t {
     pub len: usize,
     pub used: usize,
-    pub data: *mut libc::c_uchar,
+    pub data: *mut c_uchar,
     pub alloc: *mut yajl_alloc_funcs,
 }
 pub type yajl_buf = *mut yajl_buf_t;
 unsafe extern "C" fn yajl_buf_ensure_available(mut buf: yajl_buf, mut want: usize) {
     let mut need: usize = 0;
     if ((*buf).data).is_null() {
-        (*buf).len = 2048 as libc::c_int as usize;
+        (*buf).len = 2048;
         (*buf).data = ((*(*buf).alloc).malloc).expect("non-null function pointer")(
             (*(*buf).alloc).ctx,
             (*buf).len,
-        ) as *mut libc::c_uchar;
-        *((*buf).data).offset(0 as libc::c_int as isize) = 0 as libc::c_int as libc::c_uchar;
+        ) as *mut c_uchar;
+        *((*buf).data).offset(0) = 0;
     }
     need = (*buf).len;
     while want >= need.wrapping_sub((*buf).used) {
-        need <<= 1 as libc::c_int;
+        need <<= 1;
     }
     if need != (*buf).len {
         (*buf).data = ((*(*buf).alloc).realloc).expect("non-null function pointer")(
             (*(*buf).alloc).ctx,
-            (*buf).data as *mut libc::c_void,
+            (*buf).data as *mut c_void,
             need,
-        ) as *mut libc::c_uchar;
+        ) as *mut c_uchar;
         (*buf).len = need;
     }
 }
@@ -50,40 +50,36 @@ pub unsafe extern "C" fn yajl_buf_free(mut buf: yajl_buf) {
     if !((*buf).data).is_null() {
         ((*(*buf).alloc).free).expect("non-null function pointer")(
             (*(*buf).alloc).ctx,
-            (*buf).data as *mut libc::c_void,
+            (*buf).data as *mut c_void,
         );
     }
     ((*(*buf).alloc).free).expect("non-null function pointer")(
         (*(*buf).alloc).ctx,
-        buf as *mut libc::c_void,
+        buf as *mut c_void,
     );
 }
 
 pub unsafe extern "C" fn yajl_buf_append(
     mut buf: yajl_buf,
-    mut data: *const libc::c_void,
+    mut data: *const c_void,
     mut len: usize,
 ) {
     yajl_buf_ensure_available(buf, len);
     if len > 0 {
-        libc::memcpy(
-            ((*buf).data).add((*buf).used) as *mut libc::c_void,
-            data,
-            len,
-        );
+        libc::memcpy(((*buf).data).add((*buf).used) as *mut c_void, data, len);
         (*buf).used = ((*buf).used).wrapping_add(len);
-        *((*buf).data).add((*buf).used) = 0 as libc::c_int as libc::c_uchar;
+        *((*buf).data).add((*buf).used) = 0
     }
 }
 
 pub unsafe extern "C" fn yajl_buf_clear(mut buf: yajl_buf) {
-    (*buf).used = 0 as libc::c_int as usize;
+    (*buf).used = 0;
     if !((*buf).data).is_null() {
-        *((*buf).data).add((*buf).used) = 0 as libc::c_int as libc::c_uchar;
+        *((*buf).data).add((*buf).used) = 0;
     }
 }
 
-pub unsafe extern "C" fn yajl_buf_data(mut buf: yajl_buf) -> *const libc::c_uchar {
+pub unsafe extern "C" fn yajl_buf_data(mut buf: yajl_buf) -> *const c_uchar {
     (*buf).data
 }
 

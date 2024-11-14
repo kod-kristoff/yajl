@@ -2,7 +2,7 @@
 use libc::___errno as errno_location;
 #[cfg(any(target_os = "netbsd", target_os = "openbsd", target_os = "android"))]
 use libc::__errno as errno_location;
-#[cfg(any(target_os = "linux", target_os = "emscripten", target_os = "redox"))]
+#[cfg(any(target_os = "linux", target_os = "emscripten", target_os = "redox",))]
 use libc::__errno_location as errno_location;
 #[cfg(any(target_os = "macos", target_os = "freebsd"))]
 use libc::__error as errno_location;
