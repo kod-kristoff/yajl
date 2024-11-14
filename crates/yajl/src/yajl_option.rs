@@ -1,4 +1,6 @@
-pub type yajl_option = libc::c_uint;
+use core::ffi::c_uint;
+
+pub type yajl_option = c_uint;
 pub const yajl_allow_partial_values: yajl_option = 16;
 pub const yajl_allow_multiple_values: yajl_option = 8;
 pub const yajl_allow_trailing_garbage: yajl_option = 4;

@@ -9,6 +9,9 @@
 #![allow(clippy::missing_safety_doc)]
 #![cfg_attr(feature = "nightly", feature(c_variadic))]
 #![cfg_attr(feature = "nightly", feature(extern_types))]
+#![no_std]
+#![cfg(feature = "alloc")]
+extern crate alloc;
 
 extern crate libc;
 pub mod yajl;
@@ -37,7 +40,7 @@ pub use yajl::yajl_parse;
     target_os = "netbsd",
     target_os = "openbsd",
     target_os = "redox",
-    target_os = "solaris"
+    target_os = "solaris",
 ))]
 #[allow(dead_code)]
 mod util_libc;

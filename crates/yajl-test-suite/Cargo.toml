@@ -1,0 +1,13 @@
+[package]
+name = "yajl-test-suite"
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+yajl-clib = { workspace = true }
+libc = { workspace = true }
+
+[features]
+default = []
+nightly = []
