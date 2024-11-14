@@ -5,7 +5,7 @@ use crate::{
     yajl_buf::yajl_buf_t,
     yajl_lex::{yajl_lex_alloc, yajl_lexer_t},
     yajl_option::{yajl_allow_comments, yajl_dont_validate_strings, yajl_option},
-    yajl_parser::{yajl_do_finish, yajl_do_parse, yajl_handle_t, yajl_render_error_string},
+    yajl_parser::{yajl_handle_t, yajl_render_error_string},
     yajl_status::{yajl_status, yajl_status_ok},
 };
 
@@ -119,35 +119,35 @@ pub unsafe extern "C" fn yajl_config(
     }
     rv
 }
-
-pub unsafe extern "C" fn yajl_parse(
-    mut hand: yajl_handle,
-    mut jsonText: *const libc::c_uchar,
-    mut jsonTextLen: usize,
-) -> yajl_status {
-    let mut status: yajl_status = yajl_status_ok;
-    if ((*hand).lexer).is_null() {
-        (*hand).lexer = yajl_lex_alloc(
-            &mut (*hand).alloc,
-            (*hand).flags & yajl_allow_comments as libc::c_int as libc::c_uint,
-            ((*hand).flags & yajl_dont_validate_strings as libc::c_int as libc::c_uint == 0)
-                as libc::c_int as libc::c_uint,
-        );
+impl yajl_handle_t {
+    pub unsafe fn parse(
+        &mut self,
+        // mut hand: yajl_handle,
+        mut jsonText: *const libc::c_uchar,
+        mut jsonTextLen: usize,
+    ) -> yajl_status {
+        if (self.lexer).is_null() {
+            self.lexer = yajl_lex_alloc(
+                &mut self.alloc,
+                self.flags & yajl_allow_comments as libc::c_int as libc::c_uint,
+                (self.flags & yajl_dont_validate_strings as libc::c_int as libc::c_uint == 0)
+                    as libc::c_int as libc::c_uint,
+            );
+        }
+        self.do_parse(jsonText, jsonTextLen)
     }
-    status = yajl_do_parse(hand, jsonText, jsonTextLen);
-    status
-}
 
-pub unsafe extern "C" fn yajl_complete_parse(mut hand: yajl_handle) -> yajl_status {
-    if ((*hand).lexer).is_null() {
-        (*hand).lexer = yajl_lex_alloc(
-            &mut (*hand).alloc,
-            (*hand).flags & yajl_allow_comments as libc::c_int as libc::c_uint,
-            ((*hand).flags & yajl_dont_validate_strings as libc::c_int as libc::c_uint == 0)
-                as libc::c_int as libc::c_uint,
-        );
+    pub unsafe fn complete_parse(&mut self) -> yajl_status {
+        if (self.lexer).is_null() {
+            self.lexer = yajl_lex_alloc(
+                &mut self.alloc,
+                self.flags & yajl_allow_comments as libc::c_int as libc::c_uint,
+                (self.flags & yajl_dont_validate_strings as libc::c_int as libc::c_uint == 0)
+                    as libc::c_int as libc::c_uint,
+            );
+        }
+        self.do_finish()
     }
-    yajl_do_finish(hand)
 }
 pub unsafe extern "C" fn yajl_get_error(
     mut hand: yajl_handle,

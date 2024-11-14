@@ -5,9 +5,8 @@ use std::{
 
 use ::libc;
 use yajl::{
-    yajl::{yajl_complete_parse, yajl_config, yajl_free_error, yajl_get_error, yajl_handle},
+    yajl::{yajl_config, yajl_free_error, yajl_get_error, yajl_handle},
     yajl_alloc::yajl_alloc_funcs,
-    yajl_parse,
     yajl_parser::{yajl_callbacks, yajl_handle_t},
     yajl_status::{yajl_status, yajl_status_ok},
     yajl_tree::{yajl_allow_comments, yajl_allow_multiple_values, yajl_dont_validate_strings},
@@ -35,6 +34,7 @@ unsafe fn main_0(_argc: libc::c_int, _argv: *mut *mut libc::c_char) -> libc::c_i
         std::ptr::null_mut::<yajl_alloc_funcs>(),
         std::ptr::null_mut::<libc::c_void>(),
     );
+    let parser = unsafe { &mut *hand };
     let argv: Vec<String> = std::env::args().collect();
     for a in argv.iter().skip(1) {
         match a.as_str() {
@@ -71,13 +71,13 @@ unsafe fn main_0(_argc: libc::c_int, _argv: *mut *mut libc::c_char) -> libc::c_i
             break;
         } else {
             filedata[rd] = 0 as libc::c_int as libc::c_uchar;
-            stat = yajl_parse(hand, filedata.as_mut_ptr(), rd);
+            stat = parser.parse(filedata.as_mut_ptr(), rd);
             if stat != yajl_status_ok {
                 break;
             }
         }
     }
-    stat = yajl_complete_parse(hand);
+    stat = parser.complete_parse();
     if stat != yajl_status_ok {
         if quiet == 0 {
             let str: *mut libc::c_uchar =
