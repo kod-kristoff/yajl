@@ -1,6 +1,13 @@
-use yajl::yajl_gen::{
-    yajl_gen_alloc, yajl_gen_free, yajl_gen_generation_complete, yajl_gen_map_close,
-    yajl_gen_map_open, yajl_gen_status_ok,
+extern "C" {
+    fn yajl_gen_alloc(afs: *const yajl_alloc_funcs) -> yajl_gen;
+    fn yajl_gen_map_open(g: yajl_gen) -> yajl_gen_status;
+    fn yajl_gen_map_close(g: yajl_gen) -> yajl_gen_status;
+    fn yajl_gen_free(g: yajl_gen);
+
+}
+
+use yajl_test_suite::{
+    yajl_alloc_funcs, yajl_gen, yajl_gen_generation_complete, yajl_gen_status, yajl_gen_status_ok,
 };
 
 #[test]
