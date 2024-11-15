@@ -37,6 +37,8 @@ jobs:
         # enable this ci template to run regardless of whether the lockfile is checked in or not
         if: hashFiles('Cargo.lock') == ''
         run: cargo generate-lockfile
+      - name: cargo build --locked
+        run: cargo build --locked  --all-targets
       # https://twitter.com/jonhoo/status/1571290371124260865
       - name: cargo test --locked
         # run: cargo test --locked --all-features --all-targets
@@ -82,6 +84,8 @@ jobs:
         run: rustup default stable
       - name: cargo update -Zminimal-versions
         run: cargo +nightly update -Zdirect-minimal-versions
+      - name: cargo build --locked
+        run: cargo build --locked  --all-targets
       - name: cargo test
         # run: cargo test --locked --all-features --all-targets
         run: cargo test --locked --all-targets
@@ -110,6 +114,8 @@ jobs:
       - name: cargo generate-lockfile
         if: hashFiles('Cargo.lock') == ''
         run: cargo generate-lockfile
+      - name: cargo build --locked
+        run: LD_PRELOAD_PATH=target/debug/ cargo build --locked  --all-targets
       - name: cargo test
         # run: cargo test --locked --all-features --all-targets
         run: cargo test --locked  --all-targets
@@ -150,6 +156,8 @@ jobs:
       - name: cargo generate-lockfile
         if: hashFiles('Cargo.lock') == ''
         run: cargo generate-lockfile
+      - name: cargo build --locked
+        run: LD_PRELOAD_PATH=target/debug/ cargo build --locked  --all-targets
       - name: cargo llvm-cov
         # run: cargo llvm-cov --locked --all-features --lcov --output-path lcov.info
         run: cargo llvm-cov --locked  --lcov --output-path lcov.info
