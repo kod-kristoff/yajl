@@ -6,11 +6,10 @@ use core::ptr;
 use ::libc;
 
 use crate::{
-    yajl::{yajl_config, yajl_get_error},
+    parser::{yajl_callbacks, yajl_handle_t, yajl_parse_integer},
     yajl_alloc::yajl_alloc_funcs,
     yajl_buf::yajl_buf_t,
     yajl_lex::yajl_lexer_t,
-    yajl_parser::{yajl_callbacks, yajl_handle_t, yajl_parse_integer},
 };
 // extern "C" {
 
@@ -654,14 +653,13 @@ pub unsafe extern "C" fn yajl_tree_parse(
         std::ptr::null_mut::<yajl_alloc_funcs>(),
         &mut ctx as *mut context_t as *mut libc::c_void,
     );
-    let hand = unsafe { &mut *handle };
-    hand.config(yajl_allow_comments, 1 as libc::c_int);
-    status = hand.parse(input as *mut libc::c_uchar, libc::strlen(input));
-    status = hand.complete_parse();
+    let parser = unsafe { &mut *handle };
+    parser.config(yajl_allow_comments, 1 as libc::c_int);
+    status = parser.parse(input as *mut libc::c_uchar, libc::strlen(input));
+    status = parser.complete_parse();
     if status as libc::c_uint != yajl_status_ok as libc::c_int as libc::c_uint {
         if !error_buffer.is_null() && error_buffer_size > 0 as libc::c_int as usize {
-            internal_err_str = yajl_get_error(
-                handle,
+            internal_err_str = parser.get_error(
                 1 as libc::c_int,
                 input as *const libc::c_uchar,
                 libc::strlen(input),

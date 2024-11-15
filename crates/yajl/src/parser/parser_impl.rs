@@ -32,25 +32,14 @@ use crate::{
 ))]
 #[allow(dead_code)]
 use crate::util_libc::{get_last_error, set_last_error};
+
+use super::{yajl_callbacks, yajl_handle_t};
 // pub type usize = usize;
 
 pub type yajl_status = libc::c_uint;
 pub const yajl_status_error: yajl_status = 2;
 pub const yajl_status_client_canceled: yajl_status = 1;
 pub const yajl_status_ok: yajl_status = 0;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct yajl_handle_t {
-    pub callbacks: *const yajl_callbacks,
-    pub ctx: *mut libc::c_void,
-    pub lexer: yajl_lexer,
-    pub parseError: *const libc::c_char,
-    pub bytesConsumed: usize,
-    pub decodeBuf: yajl_buf,
-    pub stateStack: ByteStack,
-    pub alloc: yajl_alloc_funcs,
-    pub flags: libc::c_uint,
-}
 
 impl yajl_handle_t {
     /// allocate a parser handle
@@ -196,25 +185,7 @@ pub struct ByteStack {
 }
 pub type yajl_buf = *mut yajl_buf_t;
 pub type yajl_lexer = *mut yajl_lexer_t;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct yajl_callbacks {
-    pub yajl_null: Option<unsafe extern "C" fn(*mut libc::c_void) -> libc::c_int>,
-    pub yajl_boolean: Option<unsafe extern "C" fn(*mut libc::c_void, libc::c_int) -> libc::c_int>,
-    pub yajl_integer:
-        Option<unsafe extern "C" fn(*mut libc::c_void, libc::c_longlong) -> libc::c_int>,
-    pub yajl_double: Option<unsafe extern "C" fn(*mut libc::c_void, libc::c_double) -> libc::c_int>,
-    pub yajl_number:
-        Option<unsafe extern "C" fn(*mut libc::c_void, *const libc::c_char, usize) -> libc::c_int>,
-    pub yajl_string:
-        Option<unsafe extern "C" fn(*mut libc::c_void, *const libc::c_uchar, usize) -> libc::c_int>,
-    pub yajl_start_map: Option<unsafe extern "C" fn(*mut libc::c_void) -> libc::c_int>,
-    pub yajl_map_key:
-        Option<unsafe extern "C" fn(*mut libc::c_void, *const libc::c_uchar, usize) -> libc::c_int>,
-    pub yajl_end_map: Option<unsafe extern "C" fn(*mut libc::c_void) -> libc::c_int>,
-    pub yajl_start_array: Option<unsafe extern "C" fn(*mut libc::c_void) -> libc::c_int>,
-    pub yajl_end_array: Option<unsafe extern "C" fn(*mut libc::c_void) -> libc::c_int>,
-}
+
 pub type yajl_handle = *mut yajl_handle_t;
 pub type C2RustUnnamed = libc::c_uint;
 pub const yajl_allow_partial_values: C2RustUnnamed = 16;

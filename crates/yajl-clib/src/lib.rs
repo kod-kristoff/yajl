@@ -13,8 +13,8 @@
 // };
 
 // pub mod yajl;
+pub use yajl::parser::yajl_handle_t;
 pub use yajl::yajl_alloc::yajl_alloc_funcs;
-pub use yajl::yajl_parser::yajl_handle_t;
 pub use yajl::yajl_status::{
     yajl_status, yajl_status_client_canceled, yajl_status_error, yajl_status_ok,
 };

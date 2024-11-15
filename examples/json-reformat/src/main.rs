@@ -2,7 +2,8 @@ use std::ptr::{addr_of, addr_of_mut};
 
 use ::libc;
 use yajl::{
-    yajl::{yajl_config, yajl_free_error, yajl_get_error, yajl_handle},
+    parser::yajl_handle,
+    parser::{yajl_callbacks, yajl_handle_t},
     yajl_alloc::yajl_alloc_funcs,
     yajl_gen::{
         yajl_gen, yajl_gen_alloc, yajl_gen_array_close, yajl_gen_array_open, yajl_gen_beautify,
@@ -11,7 +12,6 @@ use yajl::{
         yajl_gen_null, yajl_gen_number, yajl_gen_reset, yajl_gen_status, yajl_gen_status_ok,
         yajl_gen_string, yajl_gen_validate_utf8,
     },
-    yajl_parser::{yajl_callbacks, yajl_handle_t},
     yajl_status::yajl_status,
     yajl_tree::{
         yajl_allow_comments, yajl_allow_multiple_values, yajl_dont_validate_strings, yajl_status_ok,
@@ -155,7 +155,7 @@ unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int
         g as *mut libc::c_void,
     );
     let parser = unsafe { &mut *hand };
-    yajl_config(hand, yajl_allow_comments, 1 as libc::c_int);
+    parser.config(yajl_allow_comments, 1 as libc::c_int);
     while a < argc
         && *(*argv.offset(a as isize)).offset(0 as libc::c_int as isize) as libc::c_int
             == '-' as i32
@@ -168,11 +168,11 @@ unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int
                     yajl_gen_config(g, yajl_gen_beautify, 0 as libc::c_int);
                 }
                 115 => {
-                    yajl_config(hand, yajl_allow_multiple_values, 1 as libc::c_int);
+                    parser.config(yajl_allow_multiple_values, 1 as libc::c_int);
                     STREAM_REFORMAT = 1 as libc::c_int;
                 }
                 117 => {
-                    yajl_config(hand, yajl_dont_validate_strings, 1 as libc::c_int);
+                    parser.config(yajl_dont_validate_strings, 1 as libc::c_int);
                 }
                 101 => {
                     yajl_gen_config(g, yajl_gen_escape_solidus, 1 as libc::c_int);
@@ -224,14 +224,13 @@ unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int
     }
     stat = parser.complete_parse();
     if stat as libc::c_uint != yajl_status_ok as libc::c_int as libc::c_uint {
-        let str: *mut libc::c_uchar =
-            yajl_get_error(hand, 1 as libc::c_int, FILEDATA.as_mut_ptr(), rd);
+        let str: *mut libc::c_uchar = parser.get_error(1 as libc::c_int, FILEDATA.as_mut_ptr(), rd);
         libc::fprintf(
             stderr,
             b"%s\0" as *const u8 as *const libc::c_char,
             str as *const libc::c_char,
         );
-        yajl_free_error(hand, str);
+        parser.free_error(str);
         retval = 1 as libc::c_int;
     }
     yajl_gen_free(g);

@@ -51,9 +51,8 @@ pub const yajl_status_ok: yajl_status = 0;
 use std::ptr::addr_of;
 
 use yajl::{
-    yajl::{yajl_config, yajl_free_error, yajl_get_error},
+    parser::{yajl_callbacks, yajl_handle_t},
     yajl_alloc::yajl_alloc_funcs,
-    yajl_parser::{yajl_callbacks, yajl_handle_t},
 };
 pub type yajl_handle = *mut yajl_handle_t;
 
@@ -275,7 +274,7 @@ unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int
             *argv.offset(i as isize),
         ) == 0
         {
-            yajl_config(hand, yajl_allow_comments, 1 as libc::c_int);
+            parser.config(yajl_allow_comments, 1 as libc::c_int);
         } else if libc::strcmp(
             b"-b\0" as *const u8 as *const libc::c_char,
             *argv.offset(i as isize),
@@ -313,19 +312,19 @@ unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int
             *argv.offset(i as isize),
         ) == 0
         {
-            yajl_config(hand, yajl_allow_trailing_garbage, 1 as libc::c_int);
+            parser.config(yajl_allow_trailing_garbage, 1 as libc::c_int);
         } else if libc::strcmp(
             b"-m\0" as *const u8 as *const libc::c_char,
             *argv.offset(i as isize),
         ) == 0
         {
-            yajl_config(hand, yajl_allow_multiple_values, 1 as libc::c_int);
+            parser.config(yajl_allow_multiple_values, 1 as libc::c_int);
         } else if libc::strcmp(
             b"-p\0" as *const u8 as *const libc::c_char,
             *argv.offset(i as isize),
         ) == 0
         {
-            yajl_config(hand, yajl_allow_partial_values, 1 as libc::c_int);
+            parser.config(yajl_allow_partial_values, 1 as libc::c_int);
         } else {
             fileName = *argv.offset(i as isize);
             break;
@@ -373,14 +372,14 @@ unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int
     }
     stat = parser.complete_parse();
     if stat as libc::c_uint != yajl_status_ok as libc::c_int as libc::c_uint {
-        let str: *mut libc::c_uchar = yajl_get_error(hand, 0 as libc::c_int, fileData, rd);
+        let str: *mut libc::c_uchar = parser.get_error(0 as libc::c_int, fileData, rd);
         libc::fflush(stdout);
         libc::fprintf(
             stderr,
             b"%s\0" as *const u8 as *const libc::c_char,
             str as *mut libc::c_char,
         );
-        yajl_free_error(hand, str);
+        parser.free_error(str);
     }
     yajl_handle_t::free(hand);
     libc::free(fileData as *mut libc::c_void);
