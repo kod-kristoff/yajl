@@ -2,10 +2,9 @@
 use ::libc;
 use libc::STDERR_FILENO;
 use yajl::{
-    yajl::{yajl_config, yajl_free_error, yajl_get_error},
+    parser::{yajl_callbacks, yajl_handle_t},
     yajl_alloc::yajl_alloc_funcs,
     yajl_option::yajl_dont_validate_strings,
-    yajl_parser::{yajl_callbacks, yajl_handle_t},
     yajl_status::{yajl_status, yajl_status_ok},
 };
 
@@ -61,8 +60,7 @@ unsafe extern "C" fn run(validate_utf8: libc::c_int) -> libc::c_int {
             }
             stat = parser.complete_parse();
             if stat != yajl_status_ok {
-                let str: *mut libc::c_uchar = yajl_get_error(
-                    hand,
+                let str: *mut libc::c_uchar = parser.get_error(
                     1 as libc::c_int,
                     *d as *mut libc::c_uchar,
                     if !(*d).is_null() { libc::strlen(*d) } else { 0 },
@@ -73,7 +71,7 @@ unsafe extern "C" fn run(validate_utf8: libc::c_int) -> libc::c_int {
                     str as *const libc::c_char as *const libc::c_void,
                     libc::strlen(str as *const libc::c_char),
                 );
-                yajl_free_error(hand, str);
+                parser.free_error(str);
                 return 1 as libc::c_int;
             }
             yajl_handle_t::free(hand);

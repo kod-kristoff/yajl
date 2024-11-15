@@ -5,9 +5,9 @@ use std::{
 
 use ::libc;
 use yajl::{
-    yajl::{yajl_config, yajl_free_error, yajl_get_error, yajl_handle},
+    parser::yajl_handle,
+    parser::{yajl_callbacks, yajl_handle_t},
     yajl_alloc::yajl_alloc_funcs,
-    yajl_parser::{yajl_callbacks, yajl_handle_t},
     yajl_status::{yajl_status, yajl_status_ok},
     yajl_tree::{yajl_allow_comments, yajl_allow_multiple_values, yajl_dont_validate_strings},
 };
@@ -40,13 +40,13 @@ unsafe fn main_0(_argc: libc::c_int, _argv: *mut *mut libc::c_char) -> libc::c_i
         match a.as_str() {
             "-q" => quiet = 1,
             "-c" => {
-                yajl_config(hand, yajl_allow_comments, 1 as libc::c_int);
+                parser.config(yajl_allow_comments, 1 as libc::c_int);
             }
             "-u" => {
-                yajl_config(hand, yajl_dont_validate_strings, 1 as libc::c_int);
+                parser.config(yajl_dont_validate_strings, 1 as libc::c_int);
             }
             "-s" => {
-                yajl_config(hand, yajl_allow_multiple_values, 1 as libc::c_int);
+                parser.config(yajl_allow_multiple_values, 1 as libc::c_int);
             }
             c => {
                 eprintln!("unrecognized option: '{c}'\n");
@@ -81,7 +81,7 @@ unsafe fn main_0(_argc: libc::c_int, _argv: *mut *mut libc::c_char) -> libc::c_i
     if stat != yajl_status_ok {
         if quiet == 0 {
             let str: *mut libc::c_uchar =
-                yajl_get_error(hand, 1 as libc::c_int, filedata.as_mut_ptr(), rd);
+                parser.get_error(1 as libc::c_int, filedata.as_mut_ptr(), rd);
 
             libc::write(
                 libc::STDERR_FILENO,
@@ -92,7 +92,7 @@ unsafe fn main_0(_argc: libc::c_int, _argv: *mut *mut libc::c_char) -> libc::c_i
             //     "{}",
             //     String::from_utf8_lossy(unsafe { &*(str as *const [u8]) })
             // );
-            yajl_free_error(hand, str);
+            parser.free_error(str);
         }
         retval = 1 as libc::c_int;
     }

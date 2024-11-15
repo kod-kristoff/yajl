@@ -1,13 +1,50 @@
 use ::libc;
+pub(crate) use parser_impl::yajl_parse_integer;
+use parser_impl::{yajl_render_error_string, ByteStack};
 
 use crate::{
     yajl_alloc::yajl_alloc_funcs,
     yajl_buf::yajl_buf_t,
     yajl_lex::{yajl_lex_alloc, yajl_lexer_t},
     yajl_option::{yajl_allow_comments, yajl_dont_validate_strings, yajl_option},
-    yajl_parser::{yajl_handle_t, yajl_render_error_string},
     yajl_status::{yajl_status, yajl_status_ok},
 };
+
+mod parser_impl;
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct yajl_handle_t {
+    pub callbacks: *const yajl_callbacks,
+    pub ctx: *mut libc::c_void,
+    pub lexer: yajl_lexer,
+    pub parseError: *const libc::c_char,
+    pub bytesConsumed: usize,
+    pub decodeBuf: yajl_buf,
+    pub stateStack: ByteStack,
+    pub alloc: yajl_alloc_funcs,
+    pub flags: libc::c_uint,
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct yajl_callbacks {
+    pub yajl_null: Option<unsafe extern "C" fn(*mut libc::c_void) -> libc::c_int>,
+    pub yajl_boolean: Option<unsafe extern "C" fn(*mut libc::c_void, libc::c_int) -> libc::c_int>,
+    pub yajl_integer:
+        Option<unsafe extern "C" fn(*mut libc::c_void, libc::c_longlong) -> libc::c_int>,
+    pub yajl_double: Option<unsafe extern "C" fn(*mut libc::c_void, libc::c_double) -> libc::c_int>,
+    pub yajl_number:
+        Option<unsafe extern "C" fn(*mut libc::c_void, *const libc::c_char, usize) -> libc::c_int>,
+    pub yajl_string:
+        Option<unsafe extern "C" fn(*mut libc::c_void, *const libc::c_uchar, usize) -> libc::c_int>,
+    pub yajl_start_map: Option<unsafe extern "C" fn(*mut libc::c_void) -> libc::c_int>,
+    pub yajl_map_key:
+        Option<unsafe extern "C" fn(*mut libc::c_void, *const libc::c_uchar, usize) -> libc::c_int>,
+    pub yajl_end_map: Option<unsafe extern "C" fn(*mut libc::c_void) -> libc::c_int>,
+    pub yajl_start_array: Option<unsafe extern "C" fn(*mut libc::c_void) -> libc::c_int>,
+    pub yajl_end_array: Option<unsafe extern "C" fn(*mut libc::c_void) -> libc::c_int>,
+}
 
 pub type __builtin_va_list = [__va_list_tag; 1];
 #[derive(Copy, Clone)]
@@ -71,58 +108,9 @@ pub unsafe extern "C" fn yajl_status_to_string(mut stat: yajl_status) -> *const 
     statStr
 }
 
-#[cfg(feature = "nightly")]
-
-pub unsafe extern "C" fn yajl_config(
-    mut h: yajl_handle,
-    mut opt: yajl_option,
-    mut args: ...
-) -> libc::c_int {
-    let mut rv: libc::c_int = 1 as libc::c_int;
-    let mut ap: ::core::ffi::VaListImpl;
-    ap = args.clone();
-    match opt as libc::c_uint {
-        1 | 2 | 4 | 8 | 16 => {
-            if ap.arg::<libc::c_int>() != 0 {
-                (*h).flags |= opt as libc::c_uint;
-            } else {
-                (*h).flags &= !(opt as libc::c_uint);
-            }
-        }
-        _ => {
-            rv = 0 as libc::c_int;
-        }
-    }
-    return rv;
-}
-#[cfg(not(feature = "nightly"))]
-
-pub unsafe extern "C" fn yajl_config(
-    mut h: yajl_handle,
-    mut opt: yajl_option,
-    mut arg: libc::c_int,
-) -> libc::c_int {
-    let mut rv: libc::c_int = 1 as libc::c_int;
-    // let mut ap: ::core::ffi::VaListImpl;
-    // ap = args.clone();
-    match opt as libc::c_uint {
-        1 | 2 | 4 | 8 | 16 => {
-            if arg != 0 {
-                (*h).flags |= opt as libc::c_uint;
-            } else {
-                (*h).flags &= !(opt as libc::c_uint);
-            }
-        }
-        _ => {
-            rv = 0 as libc::c_int;
-        }
-    }
-    rv
-}
 impl yajl_handle_t {
     pub unsafe fn parse(
         &mut self,
-        // mut hand: yajl_handle,
         mut jsonText: *const libc::c_uchar,
         mut jsonTextLen: usize,
     ) -> yajl_status {
@@ -148,25 +136,23 @@ impl yajl_handle_t {
         }
         self.do_finish()
     }
-}
-pub unsafe extern "C" fn yajl_get_error(
-    mut hand: yajl_handle,
-    mut verbose: libc::c_int,
-    mut jsonText: *const libc::c_uchar,
-    mut jsonTextLen: usize,
-) -> *mut libc::c_uchar {
-    yajl_render_error_string(hand, jsonText, jsonTextLen, verbose)
-}
-pub unsafe extern "C" fn yajl_get_bytes_consumed(mut hand: yajl_handle) -> usize {
-    if hand.is_null() {
-        0 as libc::c_int as usize
-    } else {
-        (*hand).bytesConsumed
+
+    pub unsafe fn get_error(
+        &mut self,
+        mut verbose: libc::c_int,
+        mut jsonText: *const libc::c_uchar,
+        mut jsonTextLen: usize,
+    ) -> *mut libc::c_uchar {
+        yajl_render_error_string(self, jsonText, jsonTextLen, verbose)
     }
-}
-pub unsafe extern "C" fn yajl_free_error(mut hand: yajl_handle, mut str: *mut libc::c_uchar) {
-    ((*hand).alloc.free).expect("non-null function pointer")(
-        (*hand).alloc.ctx,
-        str as *mut libc::c_void,
-    );
+
+    pub fn get_bytes_consumed(&self) -> usize {
+        self.bytesConsumed
+    }
+    pub unsafe fn free_error(&self, mut str: *mut libc::c_uchar) {
+        (self.alloc.free).expect("non-null function pointer")(
+            self.alloc.ctx,
+            str as *mut libc::c_void,
+        );
+    }
 }

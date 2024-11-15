@@ -1,13 +1,12 @@
 #![allow(clippy::missing_safety_doc)]
 use yajl::{
+    parser::{yajl_callbacks, yajl_handle_t},
     yajl_alloc::yajl_alloc_funcs,
-    yajl_lex::yajl_lex_alloc,
-    yajl_option::{yajl_allow_comments, yajl_dont_validate_strings, yajl_option},
-    yajl_parser::{yajl_callbacks, yajl_handle_t, yajl_render_error_string},
-    yajl_status::{yajl_status, yajl_status_ok},
+    yajl_option::yajl_option,
+    yajl_status::yajl_status,
 };
 
-type yajl_handle = *mut yajl::yajl_parser::yajl_handle_t;
+type yajl_handle = *mut yajl::parser::yajl_handle_t;
 
 /// allocate a parser handle
 ///
@@ -69,8 +68,8 @@ pub unsafe extern "C" fn yajl_config(
     mut opt: yajl_option,
     mut arg: libc::c_int,
 ) -> libc::c_int {
-    let h = unsafe { &mut *h };
-    h.config(opt, arg)
+    let parser = unsafe { &mut *h };
+    parser.config(opt, arg)
 }
 
 #[no_mangle]
@@ -97,13 +96,13 @@ pub unsafe extern "C" fn yajl_parse(
     mut jsonText: *const libc::c_uchar,
     mut jsonTextLen: libc::size_t,
 ) -> yajl_status {
-    let hand = unsafe { &mut *hand };
-    hand.parse(jsonText, jsonTextLen)
+    let parser = unsafe { &mut *hand };
+    parser.parse(jsonText, jsonTextLen)
 }
 #[no_mangle]
 pub unsafe extern "C" fn yajl_complete_parse(mut hand: yajl_handle) -> yajl_status {
-    let hand = unsafe { &mut *hand };
-    hand.complete_parse()
+    let parser = unsafe { &mut *hand };
+    parser.complete_parse()
 }
 #[no_mangle]
 pub unsafe extern "C" fn yajl_get_error(
@@ -112,15 +111,17 @@ pub unsafe extern "C" fn yajl_get_error(
     mut jsonText: *const libc::c_uchar,
     mut jsonTextLen: libc::size_t,
 ) -> *mut libc::c_uchar {
-    yajl_render_error_string(hand, jsonText, jsonTextLen, verbose)
+    let parser = unsafe { &mut *hand };
+    parser.get_error(verbose, jsonText, jsonTextLen)
 }
 #[no_mangle]
 pub unsafe extern "C" fn yajl_get_bytes_consumed(mut hand: yajl_handle) -> libc::size_t {
     if hand.is_null() {
-        0 as libc::c_int as libc::size_t
-    } else {
-        (*hand).bytesConsumed
+        return 0;
     }
+    let parser = unsafe { &mut *hand };
+
+    parser.get_bytes_consumed()
 }
 #[no_mangle]
 pub unsafe extern "C" fn yajl_free_error(mut hand: yajl_handle, mut str: *mut libc::c_uchar) {
