@@ -1,9 +1,12 @@
 #![allow(clippy::missing_safety_doc)]
+use core::ptr;
+
 use yajl::{
     parser::{yajl_callbacks, Parser},
     yajl_alloc::yajl_alloc_funcs,
     yajl_option::yajl_option,
     yajl_status::yajl_status,
+    yajl_tree::yajl_status_error,
 };
 
 use crate::yajl_handle_t;
@@ -64,10 +67,13 @@ pub unsafe extern "C" fn yajl_config(
 #[cfg(not(feature = "nightly"))]
 #[no_mangle]
 pub unsafe extern "C" fn yajl_config(
-    mut h: *mut Parser,
+    mut h: *mut yajl_handle_t,
     mut opt: yajl_option,
     mut arg: libc::c_int,
 ) -> libc::c_int {
+    if h.is_null() {
+        return 0;
+    }
     let parser = unsafe { &mut *h };
     parser.config(opt, arg)
 }
@@ -96,11 +102,17 @@ pub unsafe extern "C" fn yajl_parse(
     mut jsonText: *const libc::c_uchar,
     mut jsonTextLen: libc::size_t,
 ) -> yajl_status {
+    if hand.is_null() {
+        return yajl_status_error;
+    }
     let parser = unsafe { &mut *hand };
     parser.parse(jsonText, jsonTextLen)
 }
 #[no_mangle]
 pub unsafe extern "C" fn yajl_complete_parse(mut hand: *mut yajl_handle_t) -> yajl_status {
+    if hand.is_null() {
+        return yajl_status_error;
+    }
     let parser = unsafe { &mut *hand };
     parser.complete_parse()
 }
@@ -111,6 +123,9 @@ pub unsafe extern "C" fn yajl_get_error(
     mut jsonText: *const libc::c_uchar,
     mut jsonTextLen: libc::size_t,
 ) -> *mut libc::c_uchar {
+    if hand.is_null() {
+        return ptr::null_mut();
+    }
     let parser = unsafe { &mut *hand };
     parser.get_error(verbose, jsonText, jsonTextLen)
 }
@@ -120,7 +135,6 @@ pub unsafe extern "C" fn yajl_get_bytes_consumed(mut hand: *mut yajl_handle_t) -
         return 0;
     }
     let parser = unsafe { &mut *hand };
-
     parser.get_bytes_consumed()
 }
 #[no_mangle]
@@ -128,8 +142,9 @@ pub unsafe extern "C" fn yajl_free_error(
     mut hand: *mut yajl_handle_t,
     mut str: *mut libc::c_uchar,
 ) {
-    ((*hand).alloc.free).expect("non-null function pointer")(
-        (*hand).alloc.ctx,
-        str as *mut libc::c_void,
-    );
+    if hand.is_null() || str.is_null() {
+        return;
+    }
+    let parser = unsafe { &mut *hand };
+    parser.free_error(str)
 }
