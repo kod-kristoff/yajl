@@ -14,7 +14,7 @@ mod parser_impl;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct yajl_handle_t {
+pub struct Parser {
     pub callbacks: *const yajl_callbacks,
     pub ctx: *mut libc::c_void,
     pub lexer: yajl_lexer,
@@ -73,7 +73,7 @@ pub struct yajl_bytestack_t {
 pub type yajl_buf = *mut yajl_buf_t;
 pub type yajl_lexer = *mut yajl_lexer_t;
 
-pub type yajl_handle = *mut yajl_handle_t;
+pub type yajl_handle = *mut Parser;
 pub const yajl_state_start: C2RustUnnamed = 0;
 
 pub type va_list = __builtin_va_list;
@@ -108,7 +108,7 @@ pub unsafe extern "C" fn yajl_status_to_string(mut stat: yajl_status) -> *const 
     statStr
 }
 
-impl yajl_handle_t {
+impl Parser {
     pub unsafe fn parse(
         &mut self,
         mut jsonText: *const libc::c_uchar,

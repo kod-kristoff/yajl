@@ -1,12 +1,12 @@
 #![allow(clippy::missing_safety_doc)]
 use yajl::{
-    parser::{yajl_callbacks, yajl_handle_t},
+    parser::{yajl_callbacks, Parser},
     yajl_alloc::yajl_alloc_funcs,
     yajl_option::yajl_option,
     yajl_status::yajl_status,
 };
 
-type yajl_handle = *mut yajl::parser::yajl_handle_t;
+type yajl_handle = *mut yajl::parser::Parser;
 
 /// allocate a parser handle
 ///
@@ -29,12 +29,12 @@ pub unsafe extern "C" fn yajl_alloc(
     mut afs: *mut yajl_alloc_funcs,
     mut ctx: *mut libc::c_void,
 ) -> yajl_handle {
-    yajl_handle_t::alloc(callbacks, afs, ctx)
+    Parser::alloc(callbacks, afs, ctx)
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn yajl_free(mut handle: yajl_handle) {
-    yajl_handle_t::free(handle)
+    Parser::free(handle)
 }
 
 #[cfg(feature = "nightly")]
@@ -64,7 +64,7 @@ pub unsafe extern "C" fn yajl_config(
 #[cfg(not(feature = "nightly"))]
 #[no_mangle]
 pub unsafe extern "C" fn yajl_config(
-    mut h: *mut yajl_handle_t,
+    mut h: *mut Parser,
     mut opt: yajl_option,
     mut arg: libc::c_int,
 ) -> libc::c_int {

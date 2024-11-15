@@ -6,7 +6,7 @@ use std::{
 use ::libc;
 use yajl::{
     parser::yajl_handle,
-    parser::{yajl_callbacks, yajl_handle_t},
+    parser::{yajl_callbacks, Parser},
     yajl_alloc::yajl_alloc_funcs,
     yajl_status::{yajl_status, yajl_status_ok},
     yajl_tree::{yajl_allow_comments, yajl_allow_multiple_values, yajl_dont_validate_strings},
@@ -29,7 +29,7 @@ unsafe fn main_0(_argc: libc::c_int, _argv: *mut *mut libc::c_char) -> libc::c_i
     let mut filedata: [libc::c_uchar; 65536] = [0; 65536];
     let mut quiet: libc::c_int = 0 as libc::c_int;
     let mut retval: libc::c_int;
-    let hand: yajl_handle = yajl_handle_t::alloc(
+    let hand: yajl_handle = Parser::alloc(
         std::ptr::null::<yajl_callbacks>(),
         std::ptr::null_mut::<yajl_alloc_funcs>(),
         std::ptr::null_mut::<libc::c_void>(),
@@ -96,7 +96,7 @@ unsafe fn main_0(_argc: libc::c_int, _argv: *mut *mut libc::c_char) -> libc::c_i
         }
         retval = 1 as libc::c_int;
     }
-    yajl_handle_t::free(hand);
+    Parser::free(hand);
     if quiet == 0 {
         println!("JSON is {}", if retval != 0 { "invalid" } else { "valid" },);
     }

@@ -2,7 +2,7 @@
 use ::libc;
 use libc::STDERR_FILENO;
 use yajl::{
-    parser::{yajl_callbacks, yajl_handle_t},
+    parser::{yajl_callbacks, Parser},
     yajl_alloc::yajl_alloc_funcs,
     yajl_option::yajl_dont_validate_strings,
     yajl_status::{yajl_status, yajl_status_ok},
@@ -12,7 +12,7 @@ use self::documents::{doc_size, get_doc, num_docs};
 
 mod documents;
 
-pub type yajl_handle = *mut yajl_handle_t;
+pub type yajl_handle = *mut Parser;
 
 unsafe extern "C" fn mygettime() -> libc::c_double {
     let mut now: libc::timeval = libc::timeval {
@@ -35,7 +35,7 @@ unsafe extern "C" fn run(validate_utf8: libc::c_int) -> libc::c_int {
         }
         let mut i = 0 as libc::c_int;
         while i < 100 as libc::c_int {
-            let hand: yajl_handle = yajl_handle_t::alloc(
+            let hand: yajl_handle = Parser::alloc(
                 std::ptr::null::<yajl_callbacks>(),
                 std::ptr::null_mut::<yajl_alloc_funcs>(),
                 std::ptr::null_mut::<libc::c_void>(),
@@ -74,7 +74,7 @@ unsafe extern "C" fn run(validate_utf8: libc::c_int) -> libc::c_int {
                 parser.free_error(str);
                 return 1 as libc::c_int;
             }
-            yajl_handle_t::free(hand);
+            Parser::free(hand);
             times += 1;
             i += 1;
         }

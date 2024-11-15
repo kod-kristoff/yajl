@@ -7,13 +7,7 @@
 #![allow(unused_mut)]
 #![allow(unused_variables)]
 
-// pub use ::yajl::{
-//     yajl_alloc::*, yajl_buf::*, yajl_encode::*, yajl_gen::*, yajl_lex::*, yajl_parser::*,
-//     yajl_tree::*,
-// };
-
-// pub mod yajl;
-pub use yajl::parser::yajl_handle_t;
+pub use yajl::parser::Parser;
 pub use yajl::yajl_alloc::yajl_alloc_funcs;
 pub use yajl::yajl_status::{
     yajl_status, yajl_status_client_canceled, yajl_status_error, yajl_status_ok,

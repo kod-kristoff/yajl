@@ -6,7 +6,7 @@ use core::ptr;
 use ::libc;
 
 use crate::{
-    parser::{yajl_callbacks, yajl_handle_t, yajl_parse_integer},
+    parser::{yajl_callbacks, yajl_parse_integer, Parser},
     yajl_alloc::yajl_alloc_funcs,
     yajl_buf::yajl_buf_t,
     yajl_lex::yajl_lexer_t,
@@ -104,7 +104,7 @@ pub struct stack_elem_s {
     pub value: yajl_val,
     pub next: *mut stack_elem_t,
 }
-pub type yajl_handle = *mut yajl_handle_t;
+pub type yajl_handle = *mut Parser;
 
 pub type yajl_bytestack = yajl_bytestack_t;
 #[derive(Copy, Clone)]
@@ -648,7 +648,7 @@ pub unsafe extern "C" fn yajl_tree_parse(
         //     error_buffer_size,
         // );
     }
-    handle = yajl_handle_t::alloc(
+    handle = Parser::alloc(
         ptr::addr_of!(callbacks),
         std::ptr::null_mut::<yajl_alloc_funcs>(),
         &mut ctx as *mut context_t as *mut libc::c_void,
@@ -675,10 +675,10 @@ pub unsafe extern "C" fn yajl_tree_parse(
                 internal_err_str as *mut libc::c_void,
             );
         }
-        yajl_handle_t::free(handle);
+        Parser::free(handle);
         return 0 as yajl_val;
     }
-    yajl_handle_t::free(handle);
+    Parser::free(handle);
     ctx.root
 }
 
