@@ -6,8 +6,8 @@ use crate::{
     yajl_alloc::yajl_alloc_funcs,
     yajl_buf::yajl_buf_t,
     yajl_lex::{yajl_lex_alloc, yajl_lexer_t},
-    yajl_option::{yajl_allow_comments, yajl_dont_validate_strings, yajl_option},
-    yajl_status::{yajl_status, yajl_status_ok},
+    yajl_option::{yajl_allow_comments, yajl_dont_validate_strings},
+    yajl_status::yajl_status,
 };
 
 mod parser_impl;
