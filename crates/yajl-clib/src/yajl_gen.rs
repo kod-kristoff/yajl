@@ -3,7 +3,6 @@ use ::libc;
 
 pub use yajl::yajl_gen::yajl_gen_t;
 use yajl::{yajl_alloc::yajl_alloc_funcs, yajl_buf::yajl_buf_t};
-pub type __builtin_va_list = [__va_list_tag; 1];
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct __va_list_tag {
@@ -46,7 +45,6 @@ pub const yajl_gen_validate_utf8: yajl_gen_option = 8;
 pub const yajl_gen_print_callback: yajl_gen_option = 4;
 pub const yajl_gen_indent_string: yajl_gen_option = 2;
 pub const yajl_gen_beautify: yajl_gen_option = 1;
-pub type va_list = __builtin_va_list;
 pub type yajl_buf = *mut yajl_buf_t;
 #[cfg(feature = "nightly")]
 #[no_mangle]
