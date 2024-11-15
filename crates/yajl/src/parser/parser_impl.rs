@@ -33,7 +33,7 @@ use crate::{
 #[allow(dead_code)]
 use crate::util_libc::{get_last_error, set_last_error};
 
-use super::{yajl_callbacks, yajl_handle_t};
+use super::{yajl_callbacks, Parser};
 // pub type usize = usize;
 
 pub type yajl_status = libc::c_uint;
@@ -41,7 +41,7 @@ pub const yajl_status_error: yajl_status = 2;
 pub const yajl_status_client_canceled: yajl_status = 1;
 pub const yajl_status_ok: yajl_status = 0;
 
-impl yajl_handle_t {
+impl Parser {
     /// allocate a parser handle
     ///
     /// # Arguments
@@ -56,12 +56,12 @@ impl yajl_handle_t {
     ///
     /// # Safety
     ///
-    /// The caller is responsible for free the handle by calling `yajl_handle_t::free`
+    /// The caller is responsible for free the handle by calling `Parser::free`
     pub unsafe fn alloc(
         mut callbacks: *const yajl_callbacks,
         mut afs: *mut yajl_alloc_funcs,
         mut ctx: *mut libc::c_void,
-    ) -> *mut yajl_handle_t {
+    ) -> *mut Parser {
         let mut hand: yajl_handle = 0 as yajl_handle;
         let mut afsBuffer: yajl_alloc_funcs = yajl_alloc_funcs {
             malloc: None,
@@ -79,7 +79,7 @@ impl yajl_handle_t {
         }
         hand = ((*afs).malloc).expect("non-null function pointer")(
             (*afs).ctx,
-            ::core::mem::size_of::<yajl_handle_t>(),
+            ::core::mem::size_of::<Parser>(),
         ) as yajl_handle;
         libc::memcpy(
             &mut (*hand).alloc as *mut yajl_alloc_funcs as *mut libc::c_void,
@@ -186,7 +186,7 @@ pub struct ByteStack {
 pub type yajl_buf = *mut yajl_buf_t;
 pub type yajl_lexer = *mut yajl_lexer_t;
 
-pub type yajl_handle = *mut yajl_handle_t;
+pub type yajl_handle = *mut Parser;
 pub type C2RustUnnamed = libc::c_uint;
 pub const yajl_allow_partial_values: C2RustUnnamed = 16;
 pub const yajl_allow_multiple_values: C2RustUnnamed = 8;
@@ -414,7 +414,7 @@ pub unsafe extern "C" fn yajl_render_error_string(
     }
     str
 }
-impl yajl_handle_t {
+impl Parser {
     pub unsafe fn do_finish(
         &mut self,
         // mut hand: yajl_handle

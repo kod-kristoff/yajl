@@ -51,10 +51,10 @@ pub const yajl_status_ok: yajl_status = 0;
 use std::ptr::addr_of;
 
 use yajl::{
-    parser::{yajl_callbacks, yajl_handle_t},
+    parser::{yajl_callbacks, Parser},
     yajl_alloc::yajl_alloc_funcs,
 };
-pub type yajl_handle = *mut yajl_handle_t;
+pub type yajl_handle = *mut Parser;
 
 pub type yajl_option = libc::c_uint;
 pub const yajl_allow_partial_values: yajl_option = 16;
@@ -261,7 +261,7 @@ unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int
         ctx: std::ptr::null_mut::<libc::c_void>(),
     };
     allocFuncs.ctx = &mut memCtx as *mut yajlTestMemoryContext as *mut libc::c_void;
-    let hand = yajl_handle_t::alloc(
+    let hand = Parser::alloc(
         addr_of!(callbacks),
         &mut allocFuncs,
         std::ptr::null_mut::<libc::c_void>(),
@@ -339,7 +339,7 @@ unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int
                 as *const libc::c_char,
             bufSize,
         );
-        yajl_handle_t::free(hand);
+        Parser::free(hand);
         libc::exit(2 as libc::c_int);
     }
     let file: *mut libc::FILE = if !fileName.is_null() {
@@ -381,7 +381,7 @@ unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int
         );
         parser.free_error(str);
     }
-    yajl_handle_t::free(hand);
+    Parser::free(hand);
     libc::free(fileData as *mut libc::c_void);
     if !fileName.is_null() {
         libc::fclose(file);
