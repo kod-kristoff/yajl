@@ -4,8 +4,7 @@ use libc::STDERR_FILENO;
 use yajl::{
     parser::{yajl_callbacks, Parser},
     yajl_alloc::yajl_alloc_funcs,
-    yajl_status::{yajl_status, yajl_status_ok},
-    ParserOption,
+    ParserOption, Status,
 };
 
 use self::documents::{doc_size, get_doc, num_docs};
@@ -40,19 +39,19 @@ unsafe extern "C" fn run(validate_utf8: bool) -> libc::c_int {
                 std::ptr::null_mut::<yajl_alloc_funcs>(),
                 std::ptr::null_mut::<libc::c_void>(),
             );
-            let mut stat: yajl_status;
+            let mut stat;
             let parser = unsafe { &mut *hand };
             parser.config(ParserOption::DontValidateStrings, !validate_utf8);
             let mut d = get_doc(times % num_docs());
             while !(*d).is_null() {
                 stat = parser.parse(*d as *mut libc::c_uchar, libc::strlen(*d));
-                if stat as libc::c_uint != yajl_status_ok as libc::c_int as libc::c_uint {
+                if stat as libc::c_uint != Status::Ok as libc::c_int as libc::c_uint {
                     break;
                 }
                 d = d.offset(1);
             }
             stat = parser.complete_parse();
-            if stat != yajl_status_ok {
+            if stat != Status::Ok {
                 let str: *mut libc::c_uchar = parser.get_error(
                     1 as libc::c_int,
                     *d as *mut libc::c_uchar,

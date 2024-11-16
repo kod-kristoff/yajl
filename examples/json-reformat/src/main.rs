@@ -11,9 +11,7 @@ use yajl::{
         yajl_gen_null, yajl_gen_number, yajl_gen_reset, yajl_gen_status, yajl_gen_status_ok,
         yajl_gen_string, yajl_gen_validate_utf8,
     },
-    yajl_status::yajl_status,
-    yajl_tree::yajl_status_ok,
-    ParserOption,
+    ParserOption, Status,
 };
 extern "C" {
 
@@ -91,7 +89,7 @@ unsafe extern "C" fn usage(progname: *const libc::c_char) {
 unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int {
     static mut FILEDATA: [libc::c_uchar; 65536] = [0; 65536];
 
-    let mut stat: yajl_status;
+    let mut stat;
     let mut rd: usize;
     let mut retval: libc::c_int = 0 as libc::c_int;
     let mut a: libc::c_int = 1 as libc::c_int;
@@ -210,7 +208,7 @@ unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int
         } else {
             FILEDATA[rd] = 0 as libc::c_int as libc::c_uchar;
             stat = parser.parse(addr_of_mut!(FILEDATA) as *const u8, rd);
-            if stat as libc::c_uint != yajl_status_ok as libc::c_int as libc::c_uint {
+            if stat as libc::c_uint != Status::Ok as libc::c_int as libc::c_uint {
                 break;
             }
             let mut buf: *const libc::c_uchar = std::ptr::null::<libc::c_uchar>();
@@ -221,7 +219,7 @@ unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int
         }
     }
     stat = parser.complete_parse();
-    if stat as libc::c_uint != yajl_status_ok as libc::c_int as libc::c_uint {
+    if stat as libc::c_uint != Status::Ok as libc::c_int as libc::c_uint {
         let str: *mut libc::c_uchar = parser.get_error(1 as libc::c_int, FILEDATA.as_mut_ptr(), rd);
         libc::fprintf(
             stderr,

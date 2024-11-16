@@ -7,8 +7,7 @@ use ::libc;
 use yajl::{
     parser::{yajl_callbacks, yajl_handle, Parser},
     yajl_alloc::yajl_alloc_funcs,
-    yajl_status::{yajl_status, yajl_status_ok},
-    ParserOption,
+    ParserOption, Status,
 };
 
 fn usage(progname: Option<&str>) {
@@ -22,7 +21,7 @@ fn usage(progname: Option<&str>) {
     std::process::exit(1);
 }
 unsafe fn main_0(_argc: libc::c_int, _argv: *mut *mut libc::c_char) -> libc::c_int {
-    let mut stat: yajl_status;
+    let mut stat;
     let mut rd: usize;
 
     let mut filedata: [libc::c_uchar; 65536] = [0; 65536];
@@ -71,13 +70,13 @@ unsafe fn main_0(_argc: libc::c_int, _argv: *mut *mut libc::c_char) -> libc::c_i
         } else {
             filedata[rd] = 0 as libc::c_int as libc::c_uchar;
             stat = parser.parse(filedata.as_mut_ptr(), rd);
-            if stat != yajl_status_ok {
+            if stat != Status::Ok {
                 break;
             }
         }
     }
     stat = parser.complete_parse();
-    if stat != yajl_status_ok {
+    if stat != Status::Ok {
         if quiet == 0 {
             let str: *mut libc::c_uchar =
                 parser.get_error(1 as libc::c_int, filedata.as_mut_ptr(), rd);

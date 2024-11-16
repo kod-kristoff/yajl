@@ -7,7 +7,7 @@ use crate::{
     yajl_alloc::{yajl_alloc_funcs, yajl_set_default_alloc_funcs},
     yajl_buf::{yajl_buf_alloc, yajl_buf_free, yajl_buf_t},
     yajl_lex::{yajl_lex_alloc, yajl_lex_free, yajl_lexer_t},
-    yajl_status::yajl_status,
+    Status,
 };
 
 mod parser_impl;
@@ -105,7 +105,7 @@ pub const yajl_state_lexical_error: C2RustUnnamed = 3;
 pub const yajl_state_parse_error: C2RustUnnamed = 2;
 pub const yajl_state_parse_complete: C2RustUnnamed = 1;
 
-pub unsafe extern "C" fn yajl_status_to_string(mut stat: yajl_status) -> *const libc::c_char {
+pub unsafe extern "C" fn yajl_status_to_string(stat: Status) -> *const libc::c_char {
     let mut statStr: *const libc::c_char = b"unknown\0" as *const u8 as *const libc::c_char;
     match stat as libc::c_uint {
         0 => {
@@ -233,7 +233,7 @@ impl Parser {
         &mut self,
         mut jsonText: *const libc::c_uchar,
         mut jsonTextLen: usize,
-    ) -> yajl_status {
+    ) -> Status {
         if (self.lexer).is_null() {
             self.lexer = yajl_lex_alloc(
                 &mut self.alloc,
@@ -245,7 +245,7 @@ impl Parser {
         self.do_parse(jsonText, jsonTextLen)
     }
 
-    pub unsafe fn complete_parse(&mut self) -> yajl_status {
+    pub unsafe fn complete_parse(&mut self) -> Status {
         if (self.lexer).is_null() {
             self.lexer = yajl_lex_alloc(
                 &mut self.alloc,

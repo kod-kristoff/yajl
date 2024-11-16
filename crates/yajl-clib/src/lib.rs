@@ -13,9 +13,6 @@ pub type yajl_handle_t = yajl::parser::Parser;
 pub use yajl::parser::Parser;
 
 pub use yajl::yajl_alloc::yajl_alloc_funcs;
-pub use yajl::yajl_status::{
-    yajl_status, yajl_status_client_canceled, yajl_status_error, yajl_status_ok,
-};
 
 pub mod yajl_gen;
 pub mod yajl_parse;

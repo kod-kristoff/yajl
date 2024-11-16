@@ -10,7 +10,7 @@ use crate::{
     yajl_alloc::yajl_alloc_funcs,
     yajl_buf::yajl_buf_t,
     yajl_lex::yajl_lexer_t,
-    ParserOption,
+    ParserOption, Status,
 };
 
 pub type yajl_malloc_func =
@@ -94,17 +94,6 @@ pub struct yajl_bytestack_t {
 }
 pub type yajl_buf = *mut yajl_buf_t;
 pub type yajl_lexer = *mut yajl_lexer_t;
-
-pub const yajl_status_ok: yajl_status = 0;
-pub type yajl_status = libc::c_uint;
-pub const yajl_status_error: yajl_status = 2;
-pub const yajl_status_client_canceled: yajl_status = 1;
-pub type yajl_option = libc::c_uint;
-pub const yajl_allow_partial_values: yajl_option = 16;
-pub const yajl_allow_multiple_values: yajl_option = 8;
-pub const yajl_allow_trailing_garbage: yajl_option = 4;
-pub const yajl_dont_validate_strings: yajl_option = 2;
-pub const yajl_allow_comments: yajl_option = 1;
 
 #[cfg(any(
     target_os = "android",
@@ -607,7 +596,7 @@ pub unsafe extern "C" fn yajl_tree_parse(
         }
     };
     let mut handle: yajl_handle = ptr::null_mut::<Parser>();
-    let mut status: yajl_status = yajl_status_ok;
+    let mut status = Status::Ok;
     let mut internal_err_str: *mut libc::c_char = ptr::null_mut::<libc::c_char>();
     let mut ctx: context_t = {
         context_s {
@@ -634,7 +623,7 @@ pub unsafe extern "C" fn yajl_tree_parse(
     parser.config(ParserOption::AllowComments, true);
     status = parser.parse(input as *mut libc::c_uchar, libc::strlen(input));
     status = parser.complete_parse();
-    if status as libc::c_uint != yajl_status_ok as libc::c_int as libc::c_uint {
+    if status as libc::c_uint != Status::Ok as libc::c_int as libc::c_uint {
         if !error_buffer.is_null() && error_buffer_size > 0 as libc::c_int as usize {
             internal_err_str = parser.get_error(
                 1 as libc::c_int,

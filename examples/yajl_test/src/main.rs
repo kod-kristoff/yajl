@@ -196,7 +196,7 @@ unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int
     let mut fileName: *const libc::c_char = std::ptr::null::<libc::c_char>();
     static mut fileData: *mut libc::c_uchar = 0 as *const libc::c_uchar as *mut libc::c_uchar;
     let mut bufSize: usize = 2048 as libc::c_int as usize;
-    let mut stat: yajl_status;
+    let mut stat;
     let mut rd: usize;
     let mut j: libc::c_int;
     let mut memCtx = yajlTestMemoryContext {
