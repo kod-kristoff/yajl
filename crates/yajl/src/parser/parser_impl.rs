@@ -8,6 +8,7 @@ use crate::{
     yajl_buf::{yajl_buf_append, yajl_buf_clear, yajl_buf_data, yajl_buf_len, yajl_buf_t},
     yajl_encode::yajl_string_decode,
     yajl_lex::{yajl_lex_error_to_string, yajl_lex_get_error, yajl_lex_lex, yajl_lexer_t},
+    Status,
 };
 
 #[cfg(any(
@@ -28,12 +29,6 @@ use crate::{
 use crate::util_libc::{get_last_error, set_last_error};
 
 use super::Parser;
-// pub type usize = usize;
-
-pub type yajl_status = libc::c_uint;
-pub const yajl_status_error: yajl_status = 2;
-pub const yajl_status_client_canceled: yajl_status = 1;
-pub const yajl_status_ok: yajl_status = 0;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -277,31 +272,31 @@ pub unsafe extern "C" fn yajl_render_error_string(
 impl Parser {
     pub unsafe fn do_finish(
         &mut self,
-        // mut hand: yajl_handle
-    ) -> yajl_status {
-        let mut stat: yajl_status = yajl_status_ok;
+        // mut had: yajl_handle
+    ) -> Status {
+        let mut stat = Status::Ok;
         stat = self.do_parse(
             b" \0" as *const u8 as *const libc::c_char as *const libc::c_uchar,
             1 as libc::c_int as usize,
         );
-        if stat as libc::c_uint != yajl_status_ok as libc::c_int as libc::c_uint {
+        if stat as libc::c_uint != Status::Ok as libc::c_int as libc::c_uint {
             return stat;
         }
         match *(self.stateStack.stack)
             .add((self.stateStack.used).wrapping_sub(1 as libc::c_int as usize))
             as libc::c_int
         {
-            2 | 3 => yajl_status_error,
-            12 | 1 => yajl_status_ok,
+            2 | 3 => Status::Error,
+            12 | 1 => Status::Ok,
             _ => {
                 if self.flags & yajl_allow_partial_values as libc::c_int as libc::c_uint == 0 {
                     *(self.stateStack.stack)
                         .add((self.stateStack.used).wrapping_sub(1 as libc::c_int as usize)) =
                         yajl_state_parse_error as libc::c_int as libc::c_uchar;
                     self.parseError = b"premature EOF\0" as *const u8 as *const libc::c_char;
-                    return yajl_status_error;
+                    return Status::Error;
                 }
-                yajl_status_ok
+                Status::Ok
             }
         }
     }
@@ -311,7 +306,7 @@ impl Parser {
         // mut hand: yajl_handle,
         mut jsonText: *const libc::c_uchar,
         mut jsonTextLen: usize,
-    ) -> yajl_status {
+    ) -> Status {
         let mut current_block: u64;
         let mut tok: yajl_tok = yajl_tok_bool;
         let mut buf: *const libc::c_uchar = ptr::null::<libc::c_uchar>();
@@ -350,7 +345,7 @@ impl Parser {
                         }
                     }
                 }
-                3 | 2 => return yajl_status_error,
+                3 | 2 => return Status::Error,
                 0 | 12 | 6 | 11 | 9 => {
                     let mut stateToPush: yajl_state = yajl_state_start;
                     tok = yajl_lex_lex(
@@ -362,7 +357,7 @@ impl Parser {
                         &mut bufLen,
                     );
                     match tok as libc::c_uint {
-                        3 => return yajl_status_ok,
+                        3 => return Status::Ok,
                         4 => {
                             *(self.stateStack.stack).add(
                                 (self.stateStack.used).wrapping_sub(1 as libc::c_int as usize),
@@ -384,7 +379,7 @@ impl Parser {
                                     b"client cancelled parse via callback return value\0"
                                         as *const u8
                                         as *const libc::c_char;
-                                return yajl_status_client_canceled;
+                                return Status::ClientCanceled;
                             }
                             current_block = 6407515180622463684;
                         }
@@ -409,7 +404,7 @@ impl Parser {
                                         b"client cancelled parse via callback return value\0"
                                             as *const u8
                                             as *const libc::c_char;
-                                    return yajl_status_client_canceled;
+                                    return Status::ClientCanceled;
                                 }
                             }
                             current_block = 6407515180622463684;
@@ -430,7 +425,7 @@ impl Parser {
                                     b"client cancelled parse via callback return value\0"
                                         as *const u8
                                         as *const libc::c_char;
-                                return yajl_status_client_canceled;
+                                return Status::ClientCanceled;
                             }
                             current_block = 6407515180622463684;
                         }
@@ -448,7 +443,7 @@ impl Parser {
                                     b"client cancelled parse via callback return value\0"
                                         as *const u8
                                         as *const libc::c_char;
-                                return yajl_status_client_canceled;
+                                return Status::ClientCanceled;
                             }
                             current_block = 6407515180622463684;
                         }
@@ -467,7 +462,7 @@ impl Parser {
                                     b"client cancelled parse via callback return value\0"
                                         as *const u8
                                         as *const libc::c_char;
-                                return yajl_status_client_canceled;
+                                return Status::ClientCanceled;
                             }
                             stateToPush = yajl_state_map_start;
                             current_block = 6407515180622463684;
@@ -487,7 +482,7 @@ impl Parser {
                                     b"client cancelled parse via callback return value\0"
                                         as *const u8
                                         as *const libc::c_char;
-                                return yajl_status_client_canceled;
+                                return Status::ClientCanceled;
                             }
                             stateToPush = yajl_state_array_start;
                             current_block = 6407515180622463684;
@@ -510,7 +505,7 @@ impl Parser {
                                             b"client cancelled parse via callback return value\0"
                                                 as *const u8
                                                 as *const libc::c_char;
-                                        return yajl_status_client_canceled;
+                                        return Status::ClientCanceled;
                                     }
                                 } else if ((*self.callbacks).yajl_integer).is_some() {
                                     let mut i: libc::c_longlong =
@@ -548,7 +543,7 @@ impl Parser {
                                             b"client cancelled parse via callback return value\0"
                                                 as *const u8
                                                 as *const libc::c_char;
-                                        return yajl_status_client_canceled;
+                                        return Status::ClientCanceled;
                                     }
                                 }
                                 current_block = 6407515180622463684;
@@ -574,7 +569,7 @@ impl Parser {
                                             b"client cancelled parse via callback return value\0"
                                                 as *const u8
                                                 as *const libc::c_char;
-                                        return yajl_status_client_canceled;
+                                        return Status::ClientCanceled;
                                     }
                                 } else if ((*self.callbacks).yajl_double).is_some() {
                                     let mut d: libc::c_double = 0.0f64;
@@ -617,7 +612,7 @@ impl Parser {
                                             b"client cancelled parse via callback return value\0"
                                                 as *const u8
                                                 as *const libc::c_char;
-                                        return yajl_status_client_canceled;
+                                        return Status::ClientCanceled;
                                     }
                                 }
                                 current_block = 6407515180622463684;
@@ -646,7 +641,7 @@ impl Parser {
                                         b"client cancelled parse via callback return value\0"
                                             as *const u8
                                             as *const libc::c_char;
-                                    return yajl_status_client_canceled;
+                                    return Status::ClientCanceled;
                                 }
                                 self.stateStack.used = (self.stateStack.used).wrapping_sub(1);
                                 continue;
@@ -731,7 +726,7 @@ impl Parser {
                         &mut bufLen,
                     );
                     match tok as libc::c_uint {
-                        3 => return yajl_status_ok,
+                        3 => return Status::Ok,
                         4 => {
                             *(self.stateStack.stack).add(
                                 (self.stateStack.used).wrapping_sub(1 as libc::c_int as usize),
@@ -773,7 +768,7 @@ impl Parser {
                                         b"client cancelled parse via callback return value\0"
                                             as *const u8
                                             as *const libc::c_char;
-                                    return yajl_status_client_canceled;
+                                    return Status::ClientCanceled;
                                 }
                                 self.stateStack.used = (self.stateStack.used).wrapping_sub(1);
                                 continue;
@@ -801,7 +796,7 @@ impl Parser {
                                     b"client cancelled parse via callback return value\0"
                                         as *const u8
                                         as *const libc::c_char;
-                                return yajl_status_client_canceled;
+                                return Status::ClientCanceled;
                             }
                             *(self.stateStack.stack).add(
                                 (self.stateStack.used).wrapping_sub(1 as libc::c_int as usize),
@@ -832,7 +827,7 @@ impl Parser {
                                 (self.stateStack.used).wrapping_sub(1 as libc::c_int as usize),
                             ) = yajl_state_map_need_val as libc::c_int as libc::c_uchar;
                         }
-                        3 => return yajl_status_ok,
+                        3 => return Status::Ok,
                         4 => {
                             *(self.stateStack.stack).add(
                                 (self.stateStack.used).wrapping_sub(1 as libc::c_int as usize),
@@ -874,7 +869,7 @@ impl Parser {
                                     b"client cancelled parse via callback return value\0"
                                         as *const u8
                                         as *const libc::c_char;
-                                return yajl_status_client_canceled;
+                                return Status::ClientCanceled;
                             }
                             self.stateStack.used = (self.stateStack.used).wrapping_sub(1);
                         }
@@ -883,7 +878,7 @@ impl Parser {
                                 (self.stateStack.used).wrapping_sub(1 as libc::c_int as usize),
                             ) = yajl_state_map_need_key as libc::c_int as libc::c_uchar;
                         }
-                        3 => return yajl_status_ok,
+                        3 => return Status::Ok,
                         4 => {
                             *(self.stateStack.stack).add(
                                 (self.stateStack.used).wrapping_sub(1 as libc::c_int as usize),
@@ -930,7 +925,7 @@ impl Parser {
                                     b"client cancelled parse via callback return value\0"
                                         as *const u8
                                         as *const libc::c_char;
-                                return yajl_status_client_canceled;
+                                return Status::ClientCanceled;
                             }
                             self.stateStack.used = (self.stateStack.used).wrapping_sub(1);
                         }
@@ -939,7 +934,7 @@ impl Parser {
                                 (self.stateStack.used).wrapping_sub(1 as libc::c_int as usize),
                             ) = yajl_state_array_need_val as libc::c_int as libc::c_uchar;
                         }
-                        3 => return yajl_status_ok,
+                        3 => return Status::Ok,
                         4 => {
                             *(self.stateStack.stack).add(
                                 (self.stateStack.used).wrapping_sub(1 as libc::c_int as usize),
@@ -960,6 +955,6 @@ impl Parser {
                 }
             }
         }
-        yajl_status_ok
+        Status::Ok
     }
 }

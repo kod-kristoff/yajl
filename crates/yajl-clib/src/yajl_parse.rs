@@ -4,13 +4,14 @@ use core::ptr;
 use yajl::{
     parser::{yajl_callbacks, Parser},
     yajl_alloc::yajl_alloc_funcs,
-    yajl_status::yajl_status,
-    yajl_tree::yajl_status_error,
+    Status,
 };
 
 use crate::yajl_handle_t;
 #[allow(non_camel_case_types)]
 pub type yajl_option = u32;
+#[allow(non_camel_case_types)]
+pub type yajl_status = u32;
 
 /// allocate a parser handle
 ///
@@ -110,18 +111,18 @@ pub unsafe extern "C" fn yajl_parse(
     mut jsonTextLen: libc::size_t,
 ) -> yajl_status {
     if hand.is_null() {
-        return yajl_status_error;
+        return Status::Error as yajl_status;
     }
     let parser = unsafe { &mut *hand };
-    parser.parse(jsonText, jsonTextLen)
+    parser.parse(jsonText, jsonTextLen) as yajl_status
 }
 #[no_mangle]
 pub unsafe extern "C" fn yajl_complete_parse(mut hand: *mut yajl_handle_t) -> yajl_status {
     if hand.is_null() {
-        return yajl_status_error;
+        return Status::Error as yajl_status;
     }
     let parser = unsafe { &mut *hand };
-    parser.complete_parse()
+    parser.complete_parse() as yajl_status
 }
 #[no_mangle]
 pub unsafe extern "C" fn yajl_get_error(
