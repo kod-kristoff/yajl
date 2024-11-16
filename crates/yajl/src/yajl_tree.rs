@@ -10,6 +10,7 @@ use crate::{
     yajl_alloc::yajl_alloc_funcs,
     yajl_buf::yajl_buf_t,
     yajl_lex::yajl_lexer_t,
+    ParserOption,
 };
 
 pub type yajl_malloc_func =
@@ -630,7 +631,7 @@ pub unsafe extern "C" fn yajl_tree_parse(
         &mut ctx as *mut context_t as *mut libc::c_void,
     );
     let parser = unsafe { &mut *handle };
-    parser.config(yajl_allow_comments, 1 as libc::c_int);
+    parser.config(ParserOption::AllowComments, true);
     status = parser.parse(input as *mut libc::c_uchar, libc::strlen(input));
     status = parser.complete_parse();
     if status as libc::c_uint != yajl_status_ok as libc::c_int as libc::c_uint {

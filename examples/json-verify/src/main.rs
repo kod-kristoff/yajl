@@ -5,11 +5,10 @@ use std::{
 
 use ::libc;
 use yajl::{
-    parser::yajl_handle,
-    parser::{yajl_callbacks, Parser},
+    parser::{yajl_callbacks, yajl_handle, Parser},
     yajl_alloc::yajl_alloc_funcs,
     yajl_status::{yajl_status, yajl_status_ok},
-    yajl_tree::{yajl_allow_comments, yajl_allow_multiple_values, yajl_dont_validate_strings},
+    ParserOption,
 };
 
 fn usage(progname: Option<&str>) {
@@ -40,13 +39,13 @@ unsafe fn main_0(_argc: libc::c_int, _argv: *mut *mut libc::c_char) -> libc::c_i
         match a.as_str() {
             "-q" => quiet = 1,
             "-c" => {
-                parser.config(yajl_allow_comments, 1 as libc::c_int);
+                parser.config(ParserOption::AllowComments, true);
             }
             "-u" => {
-                parser.config(yajl_dont_validate_strings, 1 as libc::c_int);
+                parser.config(ParserOption::DontValidateStrings, true);
             }
             "-s" => {
-                parser.config(yajl_allow_multiple_values, 1 as libc::c_int);
+                parser.config(ParserOption::AllowMultipleValues, true);
             }
             c => {
                 eprintln!("unrecognized option: '{c}'\n");

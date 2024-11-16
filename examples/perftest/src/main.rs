@@ -4,8 +4,8 @@ use libc::STDERR_FILENO;
 use yajl::{
     parser::{yajl_callbacks, Parser},
     yajl_alloc::yajl_alloc_funcs,
-    yajl_option::yajl_dont_validate_strings,
     yajl_status::{yajl_status, yajl_status_ok},
+    ParserOption,
 };
 
 use self::documents::{doc_size, get_doc, num_docs};
@@ -25,7 +25,7 @@ unsafe extern "C" fn mygettime() -> libc::c_double {
     libc::gettimeofday(&mut now, std::ptr::null_mut::<libc::c_void>());
     now.tv_sec as libc::c_double + now.tv_usec as libc::c_double / 1000000.0f64
 }
-unsafe extern "C" fn run(validate_utf8: libc::c_int) -> libc::c_int {
+unsafe extern "C" fn run(validate_utf8: bool) -> libc::c_int {
     let mut times: usize = 0;
     let starttime = mygettime();
     loop {
@@ -42,14 +42,7 @@ unsafe extern "C" fn run(validate_utf8: libc::c_int) -> libc::c_int {
             );
             let mut stat: yajl_status;
             let parser = unsafe { &mut *hand };
-            parser.config(
-                yajl_dont_validate_strings,
-                if validate_utf8 != 0 {
-                    0 as libc::c_int
-                } else {
-                    1 as libc::c_int
-                },
-            );
+            parser.config(ParserOption::DontValidateStrings, !validate_utf8);
             let mut d = get_doc(times % num_docs());
             while !(*d).is_null() {
                 stat = parser.parse(*d as *mut libc::c_uchar, libc::strlen(*d));
@@ -115,12 +108,12 @@ unsafe fn main_0() -> libc::c_int {
         num_docs(),
     );
     libc::printf(b"With UTF8 validation:\n\0" as *const u8 as *const libc::c_char);
-    let mut rv = run(1 as libc::c_int);
+    let mut rv = run(true);
     if rv != 0 as libc::c_int {
         return rv;
     }
     libc::printf(b"Without UTF8 validation:\n\0" as *const u8 as *const libc::c_char);
-    rv = run(0 as libc::c_int);
+    rv = run(false);
     rv
 }
 pub fn main() {
