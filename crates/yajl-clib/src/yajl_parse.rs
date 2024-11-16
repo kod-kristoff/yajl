@@ -4,12 +4,13 @@ use core::ptr;
 use yajl::{
     parser::{yajl_callbacks, Parser},
     yajl_alloc::yajl_alloc_funcs,
-    yajl_option::yajl_option,
     yajl_status::yajl_status,
     yajl_tree::yajl_status_error,
 };
 
 use crate::yajl_handle_t;
+#[allow(non_camel_case_types)]
+pub type yajl_option = u32;
 
 /// allocate a parser handle
 ///
@@ -71,11 +72,17 @@ pub unsafe extern "C" fn yajl_config(
     mut opt: yajl_option,
     mut arg: libc::c_int,
 ) -> libc::c_int {
+    use yajl::ParserOption;
+
     if h.is_null() {
         return 0;
     }
     let parser = unsafe { &mut *h };
-    parser.config(opt, arg)
+    if let Some(opt) = ParserOption::from_repr(opt) {
+        parser.config(opt, arg != 0) as i32
+    } else {
+        0
+    }
 }
 
 #[no_mangle]

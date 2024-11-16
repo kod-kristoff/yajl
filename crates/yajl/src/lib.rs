@@ -17,10 +17,11 @@ pub mod yajl_buf;
 pub mod yajl_encode;
 pub mod yajl_gen;
 pub mod yajl_lex;
-pub mod yajl_option;
 pub mod yajl_status;
 pub mod yajl_tree;
 pub mod yajl_version;
+
+pub use parser::{Parser, ParserOption};
 
 #[cfg(any(
     target_os = "android",

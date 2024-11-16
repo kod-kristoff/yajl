@@ -2,46 +2,9 @@
 #![allow(non_snake_case)]
 #![allow(non_upper_case_globals)]
 extern "C" {
-
-    // fn yajl_alloc(
-    //     callbacks_0: *const yajl_callbacks,
-    //     afs: *mut yajl_alloc_funcs,
-    //     ctx: *mut libc::c_void,
-    // ) -> yajl_handle;
-    // fn yajl_config(h: yajl_handle, opt: yajl_option, _: ...) -> libc::c_int;
-    // // fn yajl_free(handle: yajl_handle);
-    // fn yajl_parse(
-    //     hand: yajl_handle,
-    //     jsonText: *const libc::c_uchar,
-    //     jsonTextLength: usize,
-    // ) -> yajl_status;
-    // fn yajl_complete_parse(hand: yajl_handle) -> yajl_status;
-    // fn yajl_get_error(
-    //     hand: yajl_handle,
-    //     verbose: libc::c_int,
-    //     jsonText: *const libc::c_uchar,
-    //     jsonTextLength: usize,
-    // ) -> *mut libc::c_uchar;
-    // fn yajl_free_error(hand: yajl_handle, str: *mut libc::c_uchar);
     static mut stdin: *mut FILE;
     static mut stdout: *mut FILE;
     static mut stderr: *mut FILE;
-    // fn fclose(__stream: *mut FILE) -> libc::c_int;
-    // fn fflush(__stream: *mut FILE) -> libc::c_int;
-    // fn fopen(_: *const libc::c_char, _: *const libc::c_char) -> *mut FILE;
-    // fn fprintf(_: *mut FILE, _: *const libc::c_char, _: ...) -> libc::c_int;
-    // fn printf(_: *const libc::c_char, _: ...) -> libc::c_int;
-    // fn fread(_: *mut libc::c_void, _: usize, _: usize, _: *mut FILE) -> usize;
-    // fn fwrite(_: *const libc::c_void, _: usize, _: usize, _: *mut FILE) -> usize;
-    // fn feof(__stream: *mut FILE) -> libc::c_int;
-    // fn strtol(_: *const libc::c_char, _: *mut *mut libc::c_char, _: libc::c_int) -> libc::c_long;
-    // fn malloc(_: usize) -> *mut libc::c_void;
-    // fn realloc(_: *mut libc::c_void, _: usize) -> *mut libc::c_void;
-    // fn free(_: *mut libc::c_void);
-    // fn exit(_: libc::c_int) -> !;
-    // fn memcpy(_: *mut libc::c_void, _: *const libc::c_void, _: usize) -> *mut libc::c_void;
-    // fn strcmp(_: *const libc::c_char, _: *const libc::c_char) -> libc::c_int;
-    // fn strlen(_: *const libc::c_char) -> usize;
 }
 
 pub type yajl_status = libc::c_uint;
@@ -53,15 +16,12 @@ use std::ptr::addr_of;
 use yajl::{
     parser::{yajl_callbacks, Parser},
     yajl_alloc::yajl_alloc_funcs,
+    ParserOption,
 };
 pub type yajl_handle = *mut Parser;
 
 pub type yajl_option = libc::c_uint;
-pub const yajl_allow_partial_values: yajl_option = 16;
-pub const yajl_allow_multiple_values: yajl_option = 8;
-pub const yajl_allow_trailing_garbage: yajl_option = 4;
-pub const yajl_dont_validate_strings: yajl_option = 2;
-pub const yajl_allow_comments: yajl_option = 1;
+
 pub type __off_t = libc::c_long;
 pub type __off64_t = libc::c_long;
 
@@ -274,7 +234,7 @@ unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int
             *argv.offset(i as isize),
         ) == 0
         {
-            parser.config(yajl_allow_comments, 1 as libc::c_int);
+            parser.config(ParserOption::AllowComments, true);
         } else if libc::strcmp(
             b"-b\0" as *const u8 as *const libc::c_char,
             *argv.offset(i as isize),
@@ -312,19 +272,19 @@ unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int
             *argv.offset(i as isize),
         ) == 0
         {
-            parser.config(yajl_allow_trailing_garbage, 1 as libc::c_int);
+            parser.config(ParserOption::AllowTrailingGarbage, true);
         } else if libc::strcmp(
             b"-m\0" as *const u8 as *const libc::c_char,
             *argv.offset(i as isize),
         ) == 0
         {
-            parser.config(yajl_allow_multiple_values, 1 as libc::c_int);
+            parser.config(ParserOption::AllowMultipleValues, true);
         } else if libc::strcmp(
             b"-p\0" as *const u8 as *const libc::c_char,
             *argv.offset(i as isize),
         ) == 0
         {
-            parser.config(yajl_allow_partial_values, 1 as libc::c_int);
+            parser.config(ParserOption::AllowPartialValues, true);
         } else {
             fileName = *argv.offset(i as isize);
             break;
