@@ -1,7 +1,7 @@
 use ::libc;
 use core::ptr;
 pub(crate) use parser_impl::yajl_parse_integer;
-use parser_impl::{yajl_render_error_string, ByteStack};
+use parser_impl::{yajl_render_error_string, ByteStack, ParseState};
 
 use crate::{
     yajl_alloc::{yajl_alloc_funcs, yajl_set_default_alloc_funcs},
@@ -173,22 +173,24 @@ impl Parser {
         (*hand).bytesConsumed = 0;
         (*hand).decodeBuf = yajl_buf_alloc(&mut (*hand).alloc);
         (*hand).flags = 0;
-        (*hand).stateStack.stack = ptr::null_mut::<libc::c_uchar>();
-        (*hand).stateStack.size = 0;
-        (*hand).stateStack.used = 0;
-        (*hand).stateStack.yaf = &mut (*hand).alloc;
-        if ((*hand).stateStack.size).wrapping_sub((*hand).stateStack.used) == 0 {
-            (*hand).stateStack.size = ((*hand).stateStack.size).wrapping_add(128);
-            (*hand).stateStack.stack = ((*(*hand).stateStack.yaf).realloc)
-                .expect("non-null function pointer")(
-                (*(*hand).stateStack.yaf).ctx,
-                (*hand).stateStack.stack as *mut libc::c_void,
-                (*hand).stateStack.size,
-            ) as *mut libc::c_uchar;
-        }
-        let fresh0 = (*hand).stateStack.used;
-        (*hand).stateStack.used = ((*hand).stateStack.used).wrapping_add(1);
-        *((*hand).stateStack.stack).add(fresh0) = yajl_state_start as u8;
+        (*hand).stateStack = ByteStack::new(&mut (*hand).alloc);
+        // (*hand).stateStack.stack = ptr::null_mut::<libc::c_uchar>();
+        // (*hand).stateStack.size = 0;
+        // (*hand).stateStack.used = 0;
+        // (*hand).stateStack.yaf = &mut (*hand).alloc;
+        // if ((*hand).stateStack.size).wrapping_sub((*hand).stateStack.used) == 0 {
+        //     (*hand).stateStack.size = ((*hand).stateStack.size).wrapping_add(128);
+        //     (*hand).stateStack.stack = ((*(*hand).stateStack.yaf).realloc)
+        //         .expect("non-null function pointer")(
+        //         (*(*hand).stateStack.yaf).ctx,
+        //         (*hand).stateStack.stack as *mut libc::c_void,
+        //         (*hand).stateStack.size,
+        //     ) as *mut libc::c_uchar;
+        // }
+        // let fresh0 = (*hand).stateStack.used;
+        // (*hand).stateStack.used = ((*hand).stateStack.used).wrapping_add(1);
+        // *((*hand).stateStack.stack).add(fresh0) = yajl_state_start as u8;
+        (*hand).stateStack.push(ParseState::Start);
         hand
     }
     // pub fn new(mut callbacks: *const yajl_callbacks,
@@ -198,12 +200,13 @@ impl Parser {
     // }
 
     pub unsafe fn free(mut handle: yajl_handle) {
-        if !((*handle).stateStack.stack).is_null() {
-            ((*(*handle).stateStack.yaf).free).expect("non-null function pointer")(
-                (*(*handle).stateStack.yaf).ctx,
-                (*handle).stateStack.stack as *mut libc::c_void,
-            );
-        }
+        // if !((*handle).stateStack.stack).is_null() {
+        //     ((*(*handle).stateStack.yaf).free).expect("non-null function pointer")(
+        //         (*(*handle).stateStack.yaf).ctx,
+        //         (*handle).stateStack.stack as *mut libc::c_void,
+        //     );
+        // }
+        (*handle).stateStack.free();
         yajl_buf_free((*handle).decodeBuf);
         if !((*handle).lexer).is_null() {
             yajl_lex_free((*handle).lexer);
