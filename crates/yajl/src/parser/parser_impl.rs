@@ -246,7 +246,7 @@ pub unsafe extern "C" fn yajl_render_error_string(
         memneeded.wrapping_add(2 as libc::c_int as usize),
     ) as *mut libc::c_uchar;
     if str.is_null() {
-        return std::ptr::null_mut::<libc::c_uchar>();
+        return ptr::null_mut::<libc::c_uchar>();
     }
     *str.offset(0 as libc::c_int as isize) = 0 as libc::c_int as libc::c_uchar;
     libc::strcat(str as *mut libc::c_char, errorType);

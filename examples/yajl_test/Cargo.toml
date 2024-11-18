@@ -7,3 +7,4 @@ version.workspace = true
 yajl = { workspace = true }
 # yajl-clib = { workspace = true }
 libc = { workspace = true }
+gpoint = "0.2.1"
