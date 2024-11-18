@@ -1,4 +1,9 @@
-use std::ptr::{addr_of, addr_of_mut};
+use std::{
+    ffi::{c_char, CStr},
+    io::{self, Read},
+    process,
+    ptr::addr_of,
+};
 
 use ::libc;
 use yajl::{
@@ -13,13 +18,6 @@ use yajl::{
     },
     ParserOption, Status,
 };
-extern "C" {
-
-    static mut stdin: *mut libc::FILE;
-    static mut stdout: *mut libc::FILE;
-    static mut stderr: *mut libc::FILE;
-
-}
 
 static mut STREAM_REFORMAT: libc::c_int = 0 as libc::c_int;
 unsafe fn with_yajl_gen<F>(ctx: *mut libc::c_void, f: F) -> libc::c_int
@@ -77,18 +75,15 @@ unsafe extern "C" fn reformat_start_array(ctx: *mut libc::c_void) -> libc::c_int
 unsafe extern "C" fn reformat_end_array(ctx: *mut libc::c_void) -> libc::c_int {
     with_yajl_gen(ctx, |g| yajl_gen_array_close(g))
 }
-unsafe extern "C" fn usage(progname: *const libc::c_char) {
-    libc::fprintf(
-        stderr,
-        b"%s: reformat json from stdin\nusage:  json_reformat [options]\n    -e escape any forward slashes (for embedding in HTML)\n    -m minimize json rather than beautify (default)\n    -s reformat a stream of multiple json entites\n    -u allow invalid UTF8 inside strings during parsing\n\0"
-            as *const u8 as *const libc::c_char,
-        progname,
+extern "C" fn usage(progname: *const libc::c_char) {
+    eprintln!(
+        "{}: reformat json from stdin\nusage:  json_reformat [options]\n    -e escape any forward slashes (for embedding in HTML)\n    -m minimize json rather than beautify (default)\n    -s reformat a stream of multiple json entites\n    -u allow invalid UTF8 inside strings during parsing"
+            ,
+        unsafe { CStr::from_ptr(progname).to_str().unwrap() },
     );
-    libc::exit(1 as libc::c_int);
+    process::exit(1);
 }
 unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int {
-    static mut FILEDATA: [libc::c_uchar; 65536] = [0; 65536];
-
     let mut stat;
     let mut rd: usize;
     let mut retval: libc::c_int = 0 as libc::c_int;
@@ -174,10 +169,9 @@ unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int
                     yajl_gen_config(g, yajl_gen_escape_solidus, 1 as libc::c_int);
                 }
                 _ => {
-                    libc::fprintf(
-                        stderr,
-                        b"unrecognized option: '%c'\n\n\0" as *const u8 as *const libc::c_char,
-                        *(*argv.offset(a as isize)).add(i) as libc::c_int,
+                    eprintln!(
+                        "unrecognized option: '{}'\n\n",
+                        *(*argv.offset(a as isize)).add(i)
                     );
                     usage(*argv.offset(0 as libc::c_int as isize));
                 }
@@ -189,43 +183,32 @@ unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int
     if a < argc {
         usage(*argv.offset(0 as libc::c_int as isize));
     }
+    let mut stdin = io::stdin().lock();
+    let mut file_data = vec![0; 1_024];
+
     loop {
-        rd = libc::fread(
-            FILEDATA.as_mut_ptr() as *mut libc::c_void,
-            1,
-            ::core::mem::size_of::<[libc::c_uchar; 65536]>().wrapping_sub(1),
-            stdin,
-        );
+        rd = stdin.read(&mut file_data).expect("valid read");
+
         if rd == 0 {
-            if libc::feof(stdin) == 0 {
-                libc::fprintf(
-                    stderr,
-                    b"error on file read.\n\0" as *const u8 as *const libc::c_char,
-                );
-                retval = 1 as libc::c_int;
-            }
             break;
         } else {
-            FILEDATA[rd] = 0 as libc::c_int as libc::c_uchar;
-            stat = parser.parse(addr_of_mut!(FILEDATA) as *const u8, rd);
+            stat = parser.parse(file_data.as_mut_ptr(), rd);
             if stat as libc::c_uint != Status::Ok as libc::c_int as libc::c_uint {
                 break;
             }
             let mut buf: *const libc::c_uchar = std::ptr::null::<libc::c_uchar>();
             let mut len: usize = 0;
             yajl_gen_get_buf(g, &mut buf, &mut len);
-            libc::fwrite(buf as *const libc::c_void, 1, len, stdout);
+            print!("{}", CStr::from_ptr(buf as *const c_char).to_str().unwrap());
             yajl_gen_clear(g);
         }
     }
     stat = parser.complete_parse();
     if stat as libc::c_uint != Status::Ok as libc::c_int as libc::c_uint {
-        let str: *mut libc::c_uchar = parser.get_error(1 as libc::c_int, FILEDATA.as_mut_ptr(), rd);
-        libc::fprintf(
-            stderr,
-            b"%s\0" as *const u8 as *const libc::c_char,
-            str as *const libc::c_char,
-        );
+        let str: *mut libc::c_uchar =
+            parser.get_error(1 as libc::c_int, file_data.as_mut_ptr(), rd);
+
+        eprint!("{}", CStr::from_ptr(str as *const c_char).to_str().unwrap());
         parser.free_error(str);
         retval = 1 as libc::c_int;
     }
