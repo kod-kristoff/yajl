@@ -5,7 +5,7 @@ use core::ptr;
 use ::libc;
 
 use crate::{
-    lexer::{yajl_lex_error_to_string, yajl_lex_get_error, yajl_lex_lex, yajl_lexer_t},
+    lexer::{yajl_lex_error_to_string, yajl_lex_get_error, yajl_lex_lex, Lexer},
     yajl_alloc::yajl_alloc_funcs,
     yajl_encode::yajl_string_decode,
     ParserOption, Status,
@@ -118,7 +118,7 @@ impl ByteStack {
         debug_assert!(!self.stack.is_null());
     }
 }
-pub type yajl_lexer = *mut yajl_lexer_t;
+pub type yajl_lexer = *mut Lexer;
 
 pub type yajl_handle = *mut Parser;
 
