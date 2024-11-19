@@ -4,6 +4,7 @@ use core::ptr;
 
 use ::libc;
 
+use crate::lexer::Token;
 use crate::{
     lexer::{yajl_lex_error_to_string, Lexer},
     yajl_alloc::yajl_alloc_funcs,
@@ -122,22 +123,6 @@ pub type yajl_lexer = *mut Lexer;
 
 pub type yajl_handle = *mut Parser;
 
-pub type yajl_tok = libc::c_uint;
-pub const yajl_tok_comment: yajl_tok = 14;
-pub const yajl_tok_string_with_escapes: yajl_tok = 13;
-pub const yajl_tok_string: yajl_tok = 12;
-pub const yajl_tok_double: yajl_tok = 11;
-pub const yajl_tok_integer: yajl_tok = 10;
-pub const yajl_tok_right_bracket: yajl_tok = 9;
-pub const yajl_tok_right_brace: yajl_tok = 8;
-pub const yajl_tok_null: yajl_tok = 7;
-pub const yajl_tok_left_bracket: yajl_tok = 6;
-pub const yajl_tok_left_brace: yajl_tok = 5;
-pub const yajl_tok_error: yajl_tok = 4;
-pub const yajl_tok_eof: yajl_tok = 3;
-pub const yajl_tok_comma: yajl_tok = 2;
-pub const yajl_tok_colon: yajl_tok = 1;
-pub const yajl_tok_bool: yajl_tok = 0;
 pub type yajl_lex_error = libc::c_uint;
 pub const yajl_lex_unallowed_comment: yajl_lex_error = 10;
 pub const yajl_lex_missing_integer_after_minus: yajl_lex_error = 9;
@@ -352,7 +337,7 @@ impl Parser {
         mut jsonTextLen: usize,
     ) -> Status {
         let mut current_block: u64;
-        let mut tok: yajl_tok = yajl_tok_bool;
+        let mut tok: Token = Token::Bool;
         let mut buf: *const libc::c_uchar = ptr::null::<libc::c_uchar>();
         let mut bufLen: usize = 0;
         let mut offset: *mut usize = &mut self.bytesConsumed;
@@ -371,7 +356,7 @@ impl Parser {
                         }
                         tok =
                             (*self.lexer).lex(jsonText, jsonTextLen, offset, &mut buf, &mut bufLen);
-                        if tok as libc::c_uint != yajl_tok_eof as libc::c_int as libc::c_uint {
+                        if tok != Token::Eof {
                             *self.stateStack.top_mut() = ParseState::ParseError;
                             self.parseError = Some(ParseError::TrailingGarbage);
                         }
@@ -385,13 +370,13 @@ impl Parser {
                 | ParseState::ArrayStart => {
                     let mut stateToPush = ParseState::Start;
                     tok = (*self.lexer).lex(jsonText, jsonTextLen, offset, &mut buf, &mut bufLen);
-                    match tok as libc::c_uint {
-                        3 => return Status::Ok,
-                        4 => {
+                    match tok {
+                        Token::Eof => return Status::Ok,
+                        Token::Error => {
                             *self.stateStack.top_mut() = ParseState::LexicalError;
                             continue;
                         }
-                        12 => {
+                        Token::String => {
                             if !(self.callbacks).is_null()
                                 && ((*self.callbacks).yajl_string).is_some()
                                 && ((*self.callbacks).yajl_string)
@@ -405,7 +390,7 @@ impl Parser {
                             }
                             current_block = 6407515180622463684;
                         }
-                        13 => {
+                        Token::StringWithEscapes => {
                             if !(self.callbacks).is_null()
                                 && ((*self.callbacks).yajl_string).is_some()
                             {
@@ -425,7 +410,7 @@ impl Parser {
                             }
                             current_block = 6407515180622463684;
                         }
-                        0 => {
+                        Token::Bool => {
                             if !(self.callbacks).is_null()
                                 && ((*self.callbacks).yajl_boolean).is_some()
                                 && ((*self.callbacks).yajl_boolean)
@@ -440,7 +425,7 @@ impl Parser {
                             }
                             current_block = 6407515180622463684;
                         }
-                        7 => {
+                        Token::Null => {
                             if !(self.callbacks).is_null()
                                 && ((*self.callbacks).yajl_null).is_some()
                                 && ((*self.callbacks).yajl_null).expect("non-null function pointer")(
@@ -453,7 +438,7 @@ impl Parser {
                             }
                             current_block = 6407515180622463684;
                         }
-                        6 => {
+                        Token::LeftBracket => {
                             if !(self.callbacks).is_null()
                                 && ((*self.callbacks).yajl_start_map).is_some()
                                 && ((*self.callbacks).yajl_start_map)
@@ -468,7 +453,7 @@ impl Parser {
                             stateToPush = ParseState::MapStart;
                             current_block = 6407515180622463684;
                         }
-                        5 => {
+                        Token::LeftBrace => {
                             if !(self.callbacks).is_null()
                                 && ((*self.callbacks).yajl_start_array).is_some()
                                 && ((*self.callbacks).yajl_start_array)
@@ -483,7 +468,7 @@ impl Parser {
                             stateToPush = ParseState::ArrayStart;
                             current_block = 6407515180622463684;
                         }
-                        10 => {
+                        Token::Integer => {
                             if !(self.callbacks).is_null() {
                                 if ((*self.callbacks).yajl_number).is_some() {
                                     if ((*self.callbacks).yajl_number)
@@ -531,7 +516,7 @@ impl Parser {
                                 current_block = 6407515180622463684;
                             }
                         }
-                        11 => {
+                        Token::Double => {
                             if !(self.callbacks).is_null() {
                                 if ((*self.callbacks).yajl_number).is_some() {
                                     if ((*self.callbacks).yajl_number)
@@ -579,7 +564,7 @@ impl Parser {
                                 current_block = 6407515180622463684;
                             }
                         }
-                        8 => {
+                        Token::RightBrace => {
                             if self.stateStack.top() == ParseState::ArrayStart {
                                 if !(self.callbacks).is_null()
                                     && ((*self.callbacks).yajl_end_array).is_some()
@@ -598,7 +583,7 @@ impl Parser {
                                 current_block = 13495271385072242379;
                             }
                         }
-                        1 | 2 | 9 => {
+                        Token::Colon | Token::Comma | Token::RightBracket => {
                             current_block = 13495271385072242379;
                         }
                         _ => {
@@ -629,13 +614,13 @@ impl Parser {
                 }
                 ParseState::MapStart | ParseState::MapNeedKey => {
                     tok = (*self.lexer).lex(jsonText, jsonTextLen, offset, &mut buf, &mut bufLen);
-                    match tok as libc::c_uint {
-                        3 => return Status::Ok,
-                        4 => {
+                    match tok {
+                        Token::Eof => return Status::Ok,
+                        Token::Error => {
                             *self.stateStack.top_mut() = ParseState::LexicalError;
                             continue;
                         }
-                        13 => {
+                        Token::StringWithEscapes => {
                             if !(self.callbacks).is_null()
                                 && ((*self.callbacks).yajl_map_key).is_some()
                             {
@@ -646,10 +631,10 @@ impl Parser {
                             }
                             current_block = 5544887021832600539;
                         }
-                        12 => {
+                        Token::String => {
                             current_block = 5544887021832600539;
                         }
-                        9 => {
+                        Token::RightBracket => {
                             if self.stateStack.top() == ParseState::MapStart {
                                 if !(self.callbacks).is_null()
                                     && ((*self.callbacks).yajl_end_map).is_some()
@@ -695,12 +680,12 @@ impl Parser {
                 }
                 ParseState::MapSep => {
                     tok = (*self.lexer).lex(jsonText, jsonTextLen, offset, &mut buf, &mut bufLen);
-                    match tok as libc::c_uint {
-                        1 => {
+                    match tok {
+                        Token::Colon => {
                             *self.stateStack.top_mut() = ParseState::MapNeedVal;
                         }
-                        3 => return Status::Ok,
-                        4 => {
+                        Token::Eof => return Status::Ok,
+                        Token::Error => {
                             *self.stateStack.top_mut() = ParseState::LexicalError;
                         }
                         _ => {
@@ -711,8 +696,8 @@ impl Parser {
                 }
                 ParseState::MapGotVal => {
                     tok = (*self.lexer).lex(jsonText, jsonTextLen, offset, &mut buf, &mut bufLen);
-                    match tok as libc::c_uint {
-                        9 => {
+                    match tok {
+                        Token::RightBracket => {
                             if !(self.callbacks).is_null()
                                 && ((*self.callbacks).yajl_end_map).is_some()
                                 && ((*self.callbacks).yajl_end_map)
@@ -726,11 +711,11 @@ impl Parser {
                             }
                             self.stateStack.pop();
                         }
-                        2 => {
+                        Token::Comma => {
                             *self.stateStack.top_mut() = ParseState::MapNeedKey;
                         }
-                        3 => return Status::Ok,
-                        4 => {
+                        Token::Eof => return Status::Ok,
+                        Token::Error => {
                             *self.stateStack.top_mut() = ParseState::LexicalError;
                         }
                         _ => {
@@ -746,8 +731,8 @@ impl Parser {
                 }
                 ParseState::ArrayGotVal => {
                     tok = (*self.lexer).lex(jsonText, jsonTextLen, offset, &mut buf, &mut bufLen);
-                    match tok as libc::c_uint {
-                        8 => {
+                    match tok {
+                        Token::RightBrace => {
                             if !(self.callbacks).is_null()
                                 && ((*self.callbacks).yajl_end_array).is_some()
                                 && ((*self.callbacks).yajl_end_array)
@@ -761,11 +746,11 @@ impl Parser {
                             }
                             self.stateStack.pop();
                         }
-                        2 => {
+                        Token::Comma => {
                             *self.stateStack.top_mut() = ParseState::ArrayNeedVal;
                         }
-                        3 => return Status::Ok,
-                        4 => {
+                        Token::Eof => return Status::Ok,
+                        Token::Error => {
                             *self.stateStack.top_mut() = ParseState::LexicalError;
                         }
                         _ => {
