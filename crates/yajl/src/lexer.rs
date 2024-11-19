@@ -2,22 +2,25 @@ use ::libc;
 
 use crate::{buffer::Buffer, yajl_alloc::yajl_alloc_funcs};
 
-pub type yajl_tok = libc::c_uint;
-pub const yajl_tok_comment: yajl_tok = 14;
-pub const yajl_tok_string_with_escapes: yajl_tok = 13;
-pub const yajl_tok_string: yajl_tok = 12;
-pub const yajl_tok_double: yajl_tok = 11;
-pub const yajl_tok_integer: yajl_tok = 10;
-pub const yajl_tok_right_bracket: yajl_tok = 9;
-pub const yajl_tok_right_brace: yajl_tok = 8;
-pub const yajl_tok_null: yajl_tok = 7;
-pub const yajl_tok_left_bracket: yajl_tok = 6;
-pub const yajl_tok_left_brace: yajl_tok = 5;
-pub const yajl_tok_error: yajl_tok = 4;
-pub const yajl_tok_eof: yajl_tok = 3;
-pub const yajl_tok_comma: yajl_tok = 2;
-pub const yajl_tok_colon: yajl_tok = 1;
-pub const yajl_tok_bool: yajl_tok = 0;
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[repr(u8)]
+pub enum Token {
+    Bool = 0,
+    Colon = 1,
+    Comma = 2,
+    Eof = 3,
+    Error = 4,
+    LeftBrace = 5,
+    LeftBracket = 6,
+    Null = 7,
+    RightBrace = 8,
+    RightBracket = 9,
+    Integer = 10,
+    Double = 11,
+    String = 12,
+    StringWithEscapes = 13,
+    Comment = 14,
+}
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct Lexer {
@@ -336,12 +339,12 @@ impl Lexer {
         mut jsonTextLen: usize,
         mut offset: *mut usize,
         mut curChar: libc::c_uchar,
-    ) -> yajl_tok {
+    ) -> Token {
         if curChar as libc::c_int <= 0x7f as libc::c_int {
-            return yajl_tok_string;
+            return Token::String;
         } else if curChar as libc::c_int >> 5 as libc::c_int == 0x6 as libc::c_int {
             if *offset >= jsonTextLen {
-                return yajl_tok_eof;
+                return Token::Eof;
             }
             curChar =
                 (if self.bufInUse != 0 && (*self.buf).len() != 0 && self.bufOff < (*self.buf).len()
@@ -355,11 +358,11 @@ impl Lexer {
                     *jsonText.add(fresh1) as libc::c_int
                 }) as libc::c_uchar;
             if curChar as libc::c_int >> 6 as libc::c_int == 0x2 as libc::c_int {
-                return yajl_tok_string;
+                return Token::String;
             }
         } else if curChar as libc::c_int >> 4 as libc::c_int == 0xe as libc::c_int {
             if *offset >= jsonTextLen {
-                return yajl_tok_eof;
+                return Token::Eof;
             }
             curChar =
                 (if self.bufInUse != 0 && (*self.buf).len() != 0 && self.bufOff < (*self.buf).len()
@@ -374,7 +377,7 @@ impl Lexer {
                 }) as libc::c_uchar;
             if curChar as libc::c_int >> 6 as libc::c_int == 0x2 as libc::c_int {
                 if *offset >= jsonTextLen {
-                    return yajl_tok_eof;
+                    return Token::Eof;
                 }
                 curChar = (if self.bufInUse != 0
                     && (*self.buf).len() != 0
@@ -389,12 +392,12 @@ impl Lexer {
                     *jsonText.add(fresh5) as libc::c_int
                 }) as libc::c_uchar;
                 if curChar as libc::c_int >> 6 as libc::c_int == 0x2 as libc::c_int {
-                    return yajl_tok_string;
+                    return Token::String;
                 }
             }
         } else if curChar as libc::c_int >> 3 as libc::c_int == 0x1e as libc::c_int {
             if *offset >= jsonTextLen {
-                return yajl_tok_eof;
+                return Token::Eof;
             }
             curChar =
                 (if self.bufInUse != 0 && (*self.buf).len() != 0 && self.bufOff < (*self.buf).len()
@@ -409,7 +412,7 @@ impl Lexer {
                 }) as libc::c_uchar;
             if curChar as libc::c_int >> 6 as libc::c_int == 0x2 as libc::c_int {
                 if *offset >= jsonTextLen {
-                    return yajl_tok_eof;
+                    return Token::Eof;
                 }
                 curChar = (if self.bufInUse != 0
                     && (*self.buf).len() != 0
@@ -425,7 +428,7 @@ impl Lexer {
                 }) as libc::c_uchar;
                 if curChar as libc::c_int >> 6 as libc::c_int == 0x2 as libc::c_int {
                     if *offset >= jsonTextLen {
-                        return yajl_tok_eof;
+                        return Token::Eof;
                     }
                     curChar = (if self.bufInUse != 0
                         && (*self.buf).len() != 0
@@ -440,12 +443,12 @@ impl Lexer {
                         *jsonText.add(fresh11) as libc::c_int
                     }) as libc::c_uchar;
                     if curChar as libc::c_int >> 6 as libc::c_int == 0x2 as libc::c_int {
-                        return yajl_tok_string;
+                        return Token::String;
                     }
                 }
             }
         }
-        yajl_tok_error
+        Token::Error
     }
 }
 unsafe fn yajl_string_scan(
@@ -473,8 +476,8 @@ impl Lexer {
         mut jsonText: *const libc::c_uchar,
         mut jsonTextLen: usize,
         mut offset: *mut usize,
-    ) -> yajl_tok {
-        let mut tok: yajl_tok = yajl_tok_error;
+    ) -> Token {
+        let mut tok: Token = Token::Error;
         let mut hasEscapes: libc::c_int = 0 as libc::c_int;
         's_10: loop {
             let mut curChar: libc::c_uchar = 0;
@@ -498,7 +501,7 @@ impl Lexer {
                 )) as usize;
             }
             if *offset >= jsonTextLen {
-                tok = yajl_tok_eof;
+                tok = Token::Eof;
                 break;
             } else {
                 curChar = (if self.bufInUse != 0
@@ -514,12 +517,12 @@ impl Lexer {
                     *jsonText.add(fresh13) as libc::c_int
                 }) as libc::c_uchar;
                 if curChar as libc::c_int == '"' as i32 {
-                    tok = yajl_tok_string;
+                    tok = Token::String;
                     break;
                 } else if curChar as libc::c_int == '\\' as i32 {
                     hasEscapes = 1 as libc::c_int;
                     if *offset >= jsonTextLen {
-                        tok = yajl_tok_eof;
+                        tok = Token::Eof;
                         break;
                     } else {
                         curChar = (if self.bufInUse != 0
@@ -535,11 +538,11 @@ impl Lexer {
                             *jsonText.add(fresh15) as libc::c_int
                         }) as libc::c_uchar;
                         if curChar as libc::c_int == 'u' as i32 {
-                            let mut i: libc::c_uint = 0 as libc::c_int as libc::c_uint;
-                            i = 0 as libc::c_int as libc::c_uint;
-                            while i < 4 as libc::c_int as libc::c_uint {
+                            let mut i: libc::c_uint = 0;
+                            i = 0;
+                            while i < 4 {
                                 if *offset >= jsonTextLen {
-                                    tok = yajl_tok_eof;
+                                    tok = Token::Eof;
                                     break 's_10;
                                 } else {
                                     curChar = (if self.bufInUse != 0
@@ -599,12 +602,12 @@ impl Lexer {
                     if self.validateUTF8 == 0 {
                         continue;
                     }
-                    let mut t: yajl_tok = self.utf8_char(jsonText, jsonTextLen, offset, curChar);
-                    if t as libc::c_uint == yajl_tok_eof as libc::c_int as libc::c_uint {
-                        tok = yajl_tok_eof;
+                    let mut t: Token = self.utf8_char(jsonText, jsonTextLen, offset, curChar);
+                    if t == Token::Eof {
+                        tok = Token::Eof;
                         break;
                     } else {
-                        if t as libc::c_uint != yajl_tok_error as libc::c_int as libc::c_uint {
+                        if t != Token::Error {
                             continue;
                         }
                         self.error = yajl_lex_string_invalid_utf8;
@@ -613,9 +616,8 @@ impl Lexer {
                 }
             }
         }
-        if hasEscapes != 0 && tok as libc::c_uint == yajl_tok_string as libc::c_int as libc::c_uint
-        {
-            tok = yajl_tok_string_with_escapes;
+        if hasEscapes != 0 && tok == Token::String {
+            tok = Token::StringWithEscapes;
         }
         tok
     }
@@ -624,11 +626,11 @@ impl Lexer {
         mut jsonText: *const libc::c_uchar,
         mut jsonTextLen: usize,
         mut offset: *mut usize,
-    ) -> yajl_tok {
+    ) -> Token {
         let mut c: libc::c_uchar = 0;
-        let mut tok: yajl_tok = yajl_tok_integer;
+        let mut tok: Token = Token::Integer;
         if *offset >= jsonTextLen {
-            return yajl_tok_eof;
+            return Token::Eof;
         }
         c = (if self.bufInUse != 0 && (*self.buf).len() != 0 && self.bufOff < (*self.buf).len() {
             let fresh18 = self.bufOff;
@@ -641,7 +643,7 @@ impl Lexer {
         }) as libc::c_uchar;
         if c as libc::c_int == '-' as i32 {
             if *offset >= jsonTextLen {
-                return yajl_tok_eof;
+                return Token::Eof;
             }
             c = (if self.bufInUse != 0 && (*self.buf).len() != 0 && self.bufOff < (*self.buf).len()
             {
@@ -656,7 +658,7 @@ impl Lexer {
         }
         if c as libc::c_int == '0' as i32 {
             if *offset >= jsonTextLen {
-                return yajl_tok_eof;
+                return Token::Eof;
             }
             c = (if self.bufInUse != 0 && (*self.buf).len() != 0 && self.bufOff < (*self.buf).len()
             {
@@ -671,7 +673,7 @@ impl Lexer {
         } else if c as libc::c_int >= '1' as i32 && c as libc::c_int <= '9' as i32 {
             loop {
                 if *offset >= jsonTextLen {
-                    return yajl_tok_eof;
+                    return Token::Eof;
                 }
                 c = (if self.bufInUse != 0
                     && (*self.buf).len() != 0
@@ -696,12 +698,12 @@ impl Lexer {
                 self.bufOff = (self.bufOff).wrapping_sub(1);
             };
             self.error = yajl_lex_missing_integer_after_minus;
-            return yajl_tok_error;
+            return Token::Error;
         }
         if c as libc::c_int == '.' as i32 {
             let mut numRd: libc::c_int = 0 as libc::c_int;
             if *offset >= jsonTextLen {
-                return yajl_tok_eof;
+                return Token::Eof;
             }
             c = (if self.bufInUse != 0 && (*self.buf).len() != 0 && self.bufOff < (*self.buf).len()
             {
@@ -716,7 +718,7 @@ impl Lexer {
             while c as libc::c_int >= '0' as i32 && c as libc::c_int <= '9' as i32 {
                 numRd += 1;
                 if *offset >= jsonTextLen {
-                    return yajl_tok_eof;
+                    return Token::Eof;
                 }
                 c = (if self.bufInUse != 0
                     && (*self.buf).len() != 0
@@ -738,13 +740,13 @@ impl Lexer {
                     self.bufOff = (self.bufOff).wrapping_sub(1);
                 };
                 self.error = yajl_lex_missing_integer_after_decimal;
-                return yajl_tok_error;
+                return Token::Error;
             }
-            tok = yajl_tok_double;
+            tok = Token::Double;
         }
         if c as libc::c_int == 'e' as i32 || c as libc::c_int == 'E' as i32 {
             if *offset >= jsonTextLen {
-                return yajl_tok_eof;
+                return Token::Eof;
             }
             c = (if self.bufInUse != 0 && (*self.buf).len() != 0 && self.bufOff < (*self.buf).len()
             {
@@ -758,7 +760,7 @@ impl Lexer {
             }) as libc::c_uchar;
             if c as libc::c_int == '+' as i32 || c as libc::c_int == '-' as i32 {
                 if *offset >= jsonTextLen {
-                    return yajl_tok_eof;
+                    return Token::Eof;
                 }
                 c = (if self.bufInUse != 0
                     && (*self.buf).len() != 0
@@ -776,7 +778,7 @@ impl Lexer {
             if c as libc::c_int >= '0' as i32 && c as libc::c_int <= '9' as i32 {
                 loop {
                     if *offset >= jsonTextLen {
-                        return yajl_tok_eof;
+                        return Token::Eof;
                     }
                     c = (if self.bufInUse != 0
                         && (*self.buf).len() != 0
@@ -801,9 +803,9 @@ impl Lexer {
                     self.bufOff = (self.bufOff).wrapping_sub(1);
                 };
                 self.error = yajl_lex_missing_integer_after_exponent;
-                return yajl_tok_error;
+                return Token::Error;
             }
-            tok = yajl_tok_double;
+            tok = Token::Double;
         }
         if *offset > 0 {
             *offset = (*offset).wrapping_sub(1);
@@ -817,11 +819,11 @@ impl Lexer {
         mut jsonText: *const libc::c_uchar,
         mut jsonTextLen: usize,
         mut offset: *mut usize,
-    ) -> yajl_tok {
+    ) -> Token {
         let mut c: libc::c_uchar = 0;
-        let mut tok: yajl_tok = yajl_tok_comment;
+        let mut tok: Token = Token::Comment;
         if *offset >= jsonTextLen {
-            return yajl_tok_eof;
+            return Token::Eof;
         }
         c = (if self.bufInUse != 0 && (*self.buf).len() != 0 && self.bufOff < (*self.buf).len() {
             let fresh36 = self.bufOff;
@@ -835,7 +837,7 @@ impl Lexer {
         if c as libc::c_int == '/' as i32 {
             loop {
                 if *offset >= jsonTextLen {
-                    return yajl_tok_eof;
+                    return Token::Eof;
                 }
                 c = (if self.bufInUse != 0
                     && (*self.buf).len() != 0
@@ -856,7 +858,7 @@ impl Lexer {
         } else if c as libc::c_int == '*' as i32 {
             loop {
                 if *offset >= jsonTextLen {
-                    return yajl_tok_eof;
+                    return Token::Eof;
                 }
                 c = (if self.bufInUse != 0
                     && (*self.buf).len() != 0
@@ -874,7 +876,7 @@ impl Lexer {
                     continue;
                 }
                 if *offset >= jsonTextLen {
-                    return yajl_tok_eof;
+                    return Token::Eof;
                 }
                 c = (if self.bufInUse != 0
                     && (*self.buf).len() != 0
@@ -899,7 +901,7 @@ impl Lexer {
             }
         } else {
             self.error = yajl_lex_invalid_char;
-            tok = yajl_tok_error;
+            tok = Token::Error;
         }
         tok
     }
@@ -911,15 +913,15 @@ impl Lexer {
         mut offset: *mut usize,
         mut outBuf: *mut *const libc::c_uchar,
         mut outLen: *mut usize,
-    ) -> yajl_tok {
-        let mut tok: yajl_tok = yajl_tok_error;
+    ) -> Token {
+        let mut tok: Token = Token::Error;
         let mut c: libc::c_uchar = 0;
         let mut startOffset: usize = *offset;
         *outBuf = std::ptr::null::<libc::c_uchar>();
         *outLen = 0 as libc::c_int as usize;
         's_21: loop {
             if *offset >= jsonTextLen {
-                tok = yajl_tok_eof;
+                tok = Token::Eof;
                 break;
             } else {
                 c = (if self.bufInUse != 0
@@ -936,27 +938,27 @@ impl Lexer {
                 }) as libc::c_uchar;
                 match c as libc::c_int {
                     123 => {
-                        tok = yajl_tok_left_bracket;
+                        tok = Token::LeftBracket;
                         break;
                     }
                     125 => {
-                        tok = yajl_tok_right_bracket;
+                        tok = Token::RightBracket;
                         break;
                     }
                     91 => {
-                        tok = yajl_tok_left_brace;
+                        tok = Token::LeftBrace;
                         break;
                     }
                     93 => {
-                        tok = yajl_tok_right_brace;
+                        tok = Token::RightBrace;
                         break;
                     }
                     44 => {
-                        tok = yajl_tok_comma;
+                        tok = Token::Comma;
                         break;
                     }
                     58 => {
-                        tok = yajl_tok_colon;
+                        tok = Token::Colon;
                         break;
                     }
                     9 | 10 | 11 | 12 | 13 | 32 => {
@@ -967,7 +969,7 @@ impl Lexer {
                             b"rue\0" as *const u8 as *const libc::c_char;
                         loop {
                             if *offset >= jsonTextLen {
-                                tok = yajl_tok_eof;
+                                tok = Token::Eof;
                                 break 's_21;
                             } else {
                                 c = (if self.bufInUse != 0
@@ -989,7 +991,7 @@ impl Lexer {
                                         self.bufOff = (self.bufOff).wrapping_sub(1);
                                     };
                                     self.error = yajl_lex_invalid_string;
-                                    tok = yajl_tok_error;
+                                    tok = Token::Error;
                                     break 's_21;
                                 } else {
                                     want = want.offset(1);
@@ -999,7 +1001,7 @@ impl Lexer {
                                 }
                             }
                         }
-                        tok = yajl_tok_bool;
+                        tok = Token::Bool;
                         break;
                     }
                     102 => {
@@ -1007,7 +1009,7 @@ impl Lexer {
                             b"alse\0" as *const u8 as *const libc::c_char;
                         loop {
                             if *offset >= jsonTextLen {
-                                tok = yajl_tok_eof;
+                                tok = Token::Eof;
                                 break 's_21;
                             } else {
                                 c = (if self.bufInUse != 0
@@ -1029,7 +1031,7 @@ impl Lexer {
                                         self.bufOff = (self.bufOff).wrapping_sub(1);
                                     };
                                     self.error = yajl_lex_invalid_string;
-                                    tok = yajl_tok_error;
+                                    tok = Token::Error;
                                     break 's_21;
                                 } else {
                                     want_0 = want_0.offset(1);
@@ -1039,7 +1041,7 @@ impl Lexer {
                                 }
                             }
                         }
-                        tok = yajl_tok_bool;
+                        tok = Token::Bool;
                         break;
                     }
                     110 => {
@@ -1047,7 +1049,7 @@ impl Lexer {
                             b"ull\0" as *const u8 as *const libc::c_char;
                         loop {
                             if *offset >= jsonTextLen {
-                                tok = yajl_tok_eof;
+                                tok = Token::Eof;
                                 break 's_21;
                             } else {
                                 c = (if self.bufInUse != 0
@@ -1069,7 +1071,7 @@ impl Lexer {
                                         self.bufOff = (self.bufOff).wrapping_sub(1);
                                     };
                                     self.error = yajl_lex_invalid_string;
-                                    tok = yajl_tok_error;
+                                    tok = Token::Error;
                                     break 's_21;
                                 } else {
                                     want_1 = want_1.offset(1);
@@ -1079,7 +1081,7 @@ impl Lexer {
                                 }
                             }
                         }
-                        tok = yajl_tok_null;
+                        tok = Token::Null;
                         break;
                     }
                     34 => {
@@ -1103,52 +1105,47 @@ impl Lexer {
                                 self.bufOff = (self.bufOff).wrapping_sub(1);
                             };
                             self.error = yajl_lex_unallowed_comment;
-                            tok = yajl_tok_error;
+                            tok = Token::Error;
                             break;
                         } else {
                             tok = self.comment(jsonText, jsonTextLen, offset);
-                            if tok as libc::c_uint
-                                != yajl_tok_comment as libc::c_int as libc::c_uint
-                            {
+                            if tok != Token::Comment {
                                 break;
                             }
-                            tok = yajl_tok_error;
+                            tok = Token::Error;
                             (*self.buf).clear();
-                            self.bufInUse = 0 as libc::c_int as libc::c_uint;
+                            self.bufInUse = 0;
                             startOffset = *offset;
                         }
                     }
                     _ => {
                         self.error = yajl_lex_invalid_char;
-                        tok = yajl_tok_error;
+                        tok = Token::Error;
                         break;
                     }
                 }
             }
         }
-        if tok as libc::c_uint == yajl_tok_eof as libc::c_int as libc::c_uint || self.bufInUse != 0
-        {
+        if tok == Token::Eof || self.bufInUse != 0 {
             if self.bufInUse == 0 {
                 (*self.buf).clear();
             }
-            self.bufInUse = 1 as libc::c_int as libc::c_uint;
+            self.bufInUse = 1;
             (*self.buf).append(
                 jsonText.add(startOffset) as *const libc::c_void,
                 (*offset).wrapping_sub(startOffset),
             );
             self.bufOff = 0 as libc::c_int as usize;
-            if tok as libc::c_uint != yajl_tok_eof as libc::c_int as libc::c_uint {
+            if tok != Token::Eof {
                 *outBuf = (*self.buf).data();
                 *outLen = (*self.buf).len();
-                self.bufInUse = 0 as libc::c_int as libc::c_uint;
+                self.bufInUse = 0;
             }
-        } else if tok as libc::c_uint != yajl_tok_error as libc::c_int as libc::c_uint {
+        } else if tok != Token::Error {
             *outBuf = jsonText.add(startOffset);
             *outLen = (*offset).wrapping_sub(startOffset);
         }
-        if tok as libc::c_uint == yajl_tok_string as libc::c_int as libc::c_uint
-            || tok as libc::c_uint == yajl_tok_string_with_escapes as libc::c_int as libc::c_uint
-        {
+        if tok == Token::String || tok == Token::StringWithEscapes {
             *outBuf = (*outBuf).offset(1);
             *outLen = { *outLen }.wrapping_sub(2 as libc::c_int as usize);
         }
@@ -1212,13 +1209,13 @@ impl Lexer {
         mut jsonText: *const libc::c_uchar,
         mut jsonTextLen: usize,
         mut offset: usize,
-    ) -> yajl_tok {
+    ) -> Token {
         let mut outBuf: *const libc::c_uchar = std::ptr::null::<libc::c_uchar>();
         let mut outLen: usize = 0;
         let mut bufLen: usize = (*self.buf).len();
         let mut bufOff: usize = self.bufOff;
         let mut bufInUse: libc::c_uint = self.bufInUse;
-        let mut tok: yajl_tok = yajl_tok_bool;
+        let mut tok: Token = Token::Bool;
         tok = self.lex(jsonText, jsonTextLen, &mut offset, &mut outBuf, &mut outLen);
         self.bufOff = bufOff;
         self.bufInUse = bufInUse;
