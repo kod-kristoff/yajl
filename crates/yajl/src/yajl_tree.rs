@@ -6,7 +6,6 @@ use core::ptr;
 use ::libc;
 
 use crate::{
-    lexer::Lexer,
     parser::{yajl_callbacks, yajl_parse_integer, Parser},
     yajl_alloc::yajl_alloc_funcs,
     ParserOption, Status,
@@ -84,7 +83,6 @@ pub struct yajl_bytestack_t {
     pub used: usize,
     pub yaf: *mut yajl_alloc_funcs,
 }
-pub type yajl_lexer = *mut Lexer;
 
 #[cfg(any(
     target_os = "android",

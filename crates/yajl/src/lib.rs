@@ -12,7 +12,6 @@
 
 extern crate libc;
 pub(crate) mod buffer;
-pub(crate) mod lexer;
 pub mod parser;
 pub mod status;
 pub mod yajl_alloc;
