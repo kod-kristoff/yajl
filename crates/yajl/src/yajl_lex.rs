@@ -1,6 +1,6 @@
 use ::libc;
 
-use crate::{yajl_alloc::yajl_alloc_funcs, yajl_buf::Buffer};
+use crate::{buffer::Buffer, yajl_alloc::yajl_alloc_funcs};
 
 pub type yajl_tok = libc::c_uint;
 pub const yajl_tok_comment: yajl_tok = 14;

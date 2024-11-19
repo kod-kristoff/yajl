@@ -3,8 +3,8 @@ use core::{ffi::c_void, ptr};
 use ::libc;
 
 use crate::{
+    buffer::{yajl_buf_append, Buffer},
     yajl_alloc::{yajl_alloc_funcs, yajl_set_default_alloc_funcs},
-    yajl_buf::{yajl_buf_append, Buffer},
     yajl_encode::{yajl_string_encode, yajl_string_validate_utf8},
 };
 
