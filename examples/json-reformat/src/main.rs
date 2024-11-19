@@ -205,8 +205,7 @@ unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int
     }
     stat = parser.complete_parse();
     if stat as libc::c_uint != Status::Ok as libc::c_int as libc::c_uint {
-        let str: *mut libc::c_uchar =
-            parser.get_error(1 as libc::c_int, file_data.as_mut_ptr(), rd);
+        let str: *mut libc::c_uchar = parser.get_error(true, file_data.as_mut_ptr(), rd);
 
         eprint!("{}", CStr::from_ptr(str as *const c_char).to_str().unwrap());
         parser.free_error(str);

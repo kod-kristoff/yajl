@@ -625,11 +625,9 @@ pub unsafe extern "C" fn yajl_tree_parse(
     status = parser.complete_parse();
     if status as libc::c_uint != Status::Ok as libc::c_int as libc::c_uint {
         if !error_buffer.is_null() && error_buffer_size > 0 as libc::c_int as usize {
-            internal_err_str = parser.get_error(
-                1 as libc::c_int,
-                input as *const libc::c_uchar,
-                libc::strlen(input),
-            ) as *mut libc::c_char;
+            internal_err_str =
+                parser.get_error(true, input as *const libc::c_uchar, libc::strlen(input))
+                    as *mut libc::c_char;
             libc::snprintf(
                 error_buffer,
                 error_buffer_size,

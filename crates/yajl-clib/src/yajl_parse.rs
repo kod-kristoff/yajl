@@ -135,7 +135,7 @@ pub unsafe extern "C" fn yajl_get_error(
         return ptr::null_mut();
     }
     let parser = unsafe { &mut *hand };
-    parser.get_error(verbose, jsonText, jsonTextLen)
+    parser.get_error(verbose != 0, jsonText, jsonTextLen)
 }
 #[no_mangle]
 pub unsafe extern "C" fn yajl_get_bytes_consumed(mut hand: *mut yajl_handle_t) -> libc::size_t {
