@@ -6,10 +6,8 @@ use ::libc;
 
 use crate::lexer::Token;
 use crate::{
-    lexer::{yajl_lex_error_to_string, Lexer},
-    yajl_alloc::yajl_alloc_funcs,
-    yajl_encode::yajl_string_decode,
-    ParserOption, Status,
+    lexer::Lexer, yajl_alloc::yajl_alloc_funcs, yajl_encode::yajl_string_decode, ParserOption,
+    Status,
 };
 
 #[cfg(any(
@@ -208,7 +206,7 @@ impl Parser {
             }
             ParseState::LexicalError => {
                 errorType = b"lexical\0" as *const u8 as *const libc::c_char;
-                errorText = yajl_lex_error_to_string((*self.lexer).get_error());
+                errorText = (*self.lexer).get_error().to_c_str_ptr();
             }
             _ => {
                 errorType = b"unknown\0" as *const u8 as *const libc::c_char;
