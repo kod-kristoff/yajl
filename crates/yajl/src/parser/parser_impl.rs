@@ -5,7 +5,7 @@ use core::ptr;
 use ::libc;
 
 use crate::{
-    lexer::{yajl_lex_error_to_string, yajl_lex_get_error, yajl_lex_lex, Lexer},
+    lexer::{yajl_lex_error_to_string, Lexer},
     yajl_alloc::yajl_alloc_funcs,
     yajl_encode::yajl_string_decode,
     ParserOption, Status,
@@ -223,7 +223,7 @@ impl Parser {
             }
             ParseState::LexicalError => {
                 errorType = b"lexical\0" as *const u8 as *const libc::c_char;
-                errorText = yajl_lex_error_to_string(yajl_lex_get_error(self.lexer));
+                errorText = yajl_lex_error_to_string((*self.lexer).get_error());
             }
             _ => {
                 errorType = b"unknown\0" as *const u8 as *const libc::c_char;
@@ -369,14 +369,8 @@ impl Parser {
                         if *offset == jsonTextLen {
                             break;
                         }
-                        tok = yajl_lex_lex(
-                            self.lexer,
-                            jsonText,
-                            jsonTextLen,
-                            offset,
-                            &mut buf,
-                            &mut bufLen,
-                        );
+                        tok =
+                            (*self.lexer).lex(jsonText, jsonTextLen, offset, &mut buf, &mut bufLen);
                         if tok as libc::c_uint != yajl_tok_eof as libc::c_int as libc::c_uint {
                             *self.stateStack.top_mut() = ParseState::ParseError;
                             self.parseError = Some(ParseError::TrailingGarbage);
@@ -390,14 +384,7 @@ impl Parser {
                 | ParseState::ArrayNeedVal
                 | ParseState::ArrayStart => {
                     let mut stateToPush = ParseState::Start;
-                    tok = yajl_lex_lex(
-                        self.lexer,
-                        jsonText,
-                        jsonTextLen,
-                        offset,
-                        &mut buf,
-                        &mut bufLen,
-                    );
+                    tok = (*self.lexer).lex(jsonText, jsonTextLen, offset, &mut buf, &mut bufLen);
                     match tok as libc::c_uint {
                         3 => return Status::Ok,
                         4 => {
@@ -641,14 +628,7 @@ impl Parser {
                     }
                 }
                 ParseState::MapStart | ParseState::MapNeedKey => {
-                    tok = yajl_lex_lex(
-                        self.lexer,
-                        jsonText,
-                        jsonTextLen,
-                        offset,
-                        &mut buf,
-                        &mut bufLen,
-                    );
+                    tok = (*self.lexer).lex(jsonText, jsonTextLen, offset, &mut buf, &mut bufLen);
                     match tok as libc::c_uint {
                         3 => return Status::Ok,
                         4 => {
@@ -714,14 +694,7 @@ impl Parser {
                     }
                 }
                 ParseState::MapSep => {
-                    tok = yajl_lex_lex(
-                        self.lexer,
-                        jsonText,
-                        jsonTextLen,
-                        offset,
-                        &mut buf,
-                        &mut bufLen,
-                    );
+                    tok = (*self.lexer).lex(jsonText, jsonTextLen, offset, &mut buf, &mut bufLen);
                     match tok as libc::c_uint {
                         1 => {
                             *self.stateStack.top_mut() = ParseState::MapNeedVal;
@@ -737,14 +710,7 @@ impl Parser {
                     }
                 }
                 ParseState::MapGotVal => {
-                    tok = yajl_lex_lex(
-                        self.lexer,
-                        jsonText,
-                        jsonTextLen,
-                        offset,
-                        &mut buf,
-                        &mut bufLen,
-                    );
+                    tok = (*self.lexer).lex(jsonText, jsonTextLen, offset, &mut buf, &mut bufLen);
                     match tok as libc::c_uint {
                         9 => {
                             if !(self.callbacks).is_null()
@@ -779,14 +745,7 @@ impl Parser {
                     }
                 }
                 ParseState::ArrayGotVal => {
-                    tok = yajl_lex_lex(
-                        self.lexer,
-                        jsonText,
-                        jsonTextLen,
-                        offset,
-                        &mut buf,
-                        &mut bufLen,
-                    );
+                    tok = (*self.lexer).lex(jsonText, jsonTextLen, offset, &mut buf, &mut bufLen);
                     match tok as libc::c_uint {
                         8 => {
                             if !(self.callbacks).is_null()
