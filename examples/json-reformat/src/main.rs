@@ -7,7 +7,7 @@ use std::{
 
 use ::libc;
 use yajl::{
-    parser::{yajl_callbacks, yajl_handle, Parser},
+    parser::{yajl_callbacks, Parser},
     yajl_alloc::yajl_alloc_funcs,
     yajl_gen::{
         yajl_gen, yajl_gen_alloc, yajl_gen_array_close, yajl_gen_array_open, yajl_gen_beautify,
@@ -140,7 +140,7 @@ unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int
     let g: yajl_gen = yajl_gen_alloc(std::ptr::null::<yajl_alloc_funcs>());
     yajl_gen_config(g, yajl_gen_beautify, 1 as libc::c_int);
     yajl_gen_config(g, yajl_gen_validate_utf8, 1 as libc::c_int);
-    let hand: yajl_handle = Parser::alloc(
+    let hand = Parser::alloc(
         addr_of!(callbacks),
         std::ptr::null_mut::<yajl_alloc_funcs>(),
         g as *mut libc::c_void,

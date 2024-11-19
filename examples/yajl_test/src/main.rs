@@ -3,14 +3,7 @@
 #![allow(non_upper_case_globals)]
 
 use core::{ptr::addr_of, slice};
-use std::{
-    ffi::{CStr, OsStr},
-    fs::File,
-    io,
-    os::unix::ffi::OsStrExt,
-    path::Path,
-    process,
-};
+use std::{ffi::CStr, fs::File, io, process};
 
 use gpoint::GPoint;
 use yajl::{
@@ -25,14 +18,7 @@ pub struct yajlTestMemoryContext {
     pub numFrees: libc::c_uint,
     pub numMallocs: libc::c_uint,
 }
-#[inline]
-unsafe extern "C" fn atoi(mut __nptr: *const libc::c_char) -> libc::c_int {
-    libc::strtol(
-        __nptr,
-        std::ptr::null_mut::<libc::c_void>() as *mut *mut libc::c_char,
-        10 as libc::c_int,
-    ) as libc::c_int
-}
+
 unsafe extern "C" fn yajlTestFree(ctx: *mut libc::c_void, ptr: *mut libc::c_void) {
     let fresh0 = &mut (*(ctx as *mut yajlTestMemoryContext)).numFrees;
     *fresh0 = (*fresh0).wrapping_add(1);
@@ -170,7 +156,6 @@ unsafe fn main_0(args: Vec<String>) -> libc::c_int {
     let mut bufSize: usize = 2048;
     let mut stat;
     let mut rd: usize;
-    let mut j: libc::c_int;
     let mut memCtx = yajlTestMemoryContext {
         numFrees: 0,
         numMallocs: 0,

@@ -11,11 +11,6 @@ pub struct __va_list_tag {
     pub overflow_arg_area: *mut libc::c_void,
     pub reg_save_area: *mut libc::c_void,
 }
-pub type yajl_malloc_func =
-    Option<unsafe extern "C" fn(*mut libc::c_void, usize) -> *mut libc::c_void>;
-pub type yajl_free_func = Option<unsafe extern "C" fn(*mut libc::c_void, *mut libc::c_void) -> ()>;
-pub type yajl_realloc_func =
-    Option<unsafe extern "C" fn(*mut libc::c_void, *mut libc::c_void, usize) -> *mut libc::c_void>;
 
 pub type yajl_gen_status = libc::c_uint;
 pub const yajl_gen_invalid_string: yajl_gen_status = 7;
