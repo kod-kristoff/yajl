@@ -6,7 +6,6 @@ use ::libc;
 
 use crate::{
     yajl_alloc::yajl_alloc_funcs,
-    yajl_buf::{yajl_buf_append, yajl_buf_clear, yajl_buf_data, yajl_buf_len, yajl_buf_t},
     yajl_encode::yajl_string_decode,
     yajl_lex::{yajl_lex_error_to_string, yajl_lex_get_error, yajl_lex_lex, yajl_lexer_t},
     ParserOption, Status,
@@ -119,7 +118,6 @@ impl ByteStack {
         debug_assert!(!self.stack.is_null());
     }
 }
-pub type yajl_buf = *mut yajl_buf_t;
 pub type yajl_lexer = *mut yajl_lexer_t;
 
 pub type yajl_handle = *mut Parser;
@@ -424,13 +422,13 @@ impl Parser {
                             if !(self.callbacks).is_null()
                                 && ((*self.callbacks).yajl_string).is_some()
                             {
-                                yajl_buf_clear(self.decodeBuf);
+                                (*self.decodeBuf).clear();
                                 yajl_string_decode(self.decodeBuf, buf, bufLen);
                                 if ((*self.callbacks).yajl_string)
                                     .expect("non-null function pointer")(
                                     self.ctx,
-                                    yajl_buf_data(self.decodeBuf),
-                                    yajl_buf_len(self.decodeBuf),
+                                    (*self.decodeBuf).data(),
+                                    (*self.decodeBuf).len(),
                                 ) == 0
                                 {
                                     *self.stateStack.top_mut() = ParseState::ParseError;
@@ -562,13 +560,9 @@ impl Parser {
                                     }
                                 } else if ((*self.callbacks).yajl_double).is_some() {
                                     let mut d: libc::c_double = 0.0f64;
-                                    yajl_buf_clear(self.decodeBuf);
-                                    yajl_buf_append(
-                                        self.decodeBuf,
-                                        buf as *const libc::c_void,
-                                        bufLen,
-                                    );
-                                    buf = yajl_buf_data(self.decodeBuf);
+                                    (*self.decodeBuf).clear();
+                                    (*self.decodeBuf).append(buf as *const libc::c_void, bufLen);
+                                    buf = (*self.decodeBuf).data();
                                     set_last_error(0);
                                     d = libc::strtod(
                                         buf as *mut libc::c_char,
@@ -665,10 +659,10 @@ impl Parser {
                             if !(self.callbacks).is_null()
                                 && ((*self.callbacks).yajl_map_key).is_some()
                             {
-                                yajl_buf_clear(self.decodeBuf);
+                                (*self.decodeBuf).clear();
                                 yajl_string_decode(self.decodeBuf, buf, bufLen);
-                                buf = yajl_buf_data(self.decodeBuf);
-                                bufLen = yajl_buf_len(self.decodeBuf);
+                                buf = (*self.decodeBuf).data();
+                                bufLen = (*self.decodeBuf).len();
                             }
                             current_block = 5544887021832600539;
                         }

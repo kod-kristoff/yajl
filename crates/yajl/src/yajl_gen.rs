@@ -1,13 +1,10 @@
-use std::ptr;
+use core::{ffi::c_void, ptr};
 
 use ::libc;
 
 use crate::{
     yajl_alloc::{yajl_alloc_funcs, yajl_set_default_alloc_funcs},
-    yajl_buf::{
-        yajl_buf_alloc, yajl_buf_append, yajl_buf_clear, yajl_buf_data, yajl_buf_free,
-        yajl_buf_len, yajl_buf_t,
-    },
+    yajl_buf::{yajl_buf_append, Buffer},
     yajl_encode::{yajl_string_encode, yajl_string_validate_utf8},
 };
 
@@ -60,7 +57,6 @@ pub const yajl_gen_print_callback: yajl_gen_option = 4;
 pub const yajl_gen_indent_string: yajl_gen_option = 2;
 pub const yajl_gen_beautify: yajl_gen_option = 1;
 pub type va_list = __builtin_va_list;
-pub type yajl_buf = *mut yajl_buf_t;
 #[cfg(feature = "nightly")]
 pub unsafe extern "C" fn yajl_gen_config(
     mut g: yajl_gen,
@@ -96,7 +92,7 @@ pub unsafe extern "C" fn yajl_gen_config(
             }
         }
         4 => {
-            yajl_buf_free((*g).ctx as yajl_buf);
+            Buffer::free((*g).ctx as *mut Buffer);
             (*g).print = ::core::mem::transmute(ap.arg::<*mut unsafe extern "C" fn(
                 *mut libc::c_void,
                 *const libc::c_char,
@@ -173,7 +169,7 @@ pub unsafe extern "C" fn yajl_gen_config_print_callback(
     let mut rv: libc::c_int = 1 as libc::c_int;
     match opt as libc::c_uint {
         4 => {
-            yajl_buf_free((*g).ctx as yajl_buf);
+            Buffer::free((*g).ctx as *mut Buffer);
             (*g).print = Some(print);
             (*g).ctx = ctx;
         }
@@ -214,12 +210,12 @@ pub unsafe extern "C" fn yajl_gen_alloc(mut afs: *const yajl_alloc_funcs) -> yaj
         ::core::mem::size_of::<yajl_alloc_funcs>(),
     );
     (*g).print = ::core::mem::transmute::<
-        Option<unsafe extern "C" fn(yajl_buf, *const libc::c_void, usize) -> ()>,
+        Option<unsafe extern "C" fn(*mut Buffer, *const libc::c_void, usize) -> ()>,
         yajl_print_t,
     >(Some(
-        yajl_buf_append as unsafe extern "C" fn(yajl_buf, *const libc::c_void, usize) -> (),
+        yajl_buf_append as unsafe extern "C" fn(*mut Buffer, *const libc::c_void, usize) -> (),
     ));
-    (*g).ctx = yajl_buf_alloc(&mut (*g).alloc) as *mut libc::c_void;
+    (*g).ctx = Buffer::alloc(&mut (*g).alloc) as *mut c_void;
     (*g).indentString = b"    \0" as *const u8 as *const libc::c_char;
     g
 }
@@ -234,13 +230,13 @@ pub unsafe extern "C" fn yajl_gen_reset(mut g: yajl_gen, mut sep: *const libc::c
 pub unsafe extern "C" fn yajl_gen_free(mut g: yajl_gen) {
     if (*g).print
         == ::core::mem::transmute::<
-            Option<unsafe extern "C" fn(yajl_buf, *const libc::c_void, usize) -> ()>,
+            Option<unsafe extern "C" fn(*mut Buffer, *const libc::c_void, usize) -> ()>,
             yajl_print_t,
         >(Some(
-            yajl_buf_append as unsafe extern "C" fn(yajl_buf, *const libc::c_void, usize) -> (),
+            yajl_buf_append as unsafe extern "C" fn(*mut Buffer, *const libc::c_void, usize) -> (),
         ))
     {
-        yajl_buf_free((*g).ctx as yajl_buf);
+        Buffer::free((*g).ctx as *mut Buffer);
     }
     ((*g).alloc.free).expect("non-null function pointer")((*g).alloc.ctx, g as *mut libc::c_void);
 }
@@ -1228,28 +1224,28 @@ pub unsafe extern "C" fn yajl_gen_get_buf(
 ) -> yajl_gen_status {
     if (*g).print
         != ::core::mem::transmute::<
-            Option<unsafe extern "C" fn(yajl_buf, *const libc::c_void, usize) -> ()>,
+            Option<unsafe extern "C" fn(*mut Buffer, *const libc::c_void, usize) -> ()>,
             yajl_print_t,
         >(Some(
-            yajl_buf_append as unsafe extern "C" fn(yajl_buf, *const libc::c_void, usize) -> (),
+            yajl_buf_append as unsafe extern "C" fn(*mut Buffer, *const libc::c_void, usize) -> (),
         ))
     {
         return yajl_gen_no_buf;
     }
-    *buf = yajl_buf_data((*g).ctx as yajl_buf);
-    *len = yajl_buf_len((*g).ctx as yajl_buf);
+    *buf = (*((*g).ctx as *mut Buffer)).data();
+    *len = (*((*g).ctx as *mut Buffer)).len();
     yajl_gen_status_ok
 }
 
 pub unsafe extern "C" fn yajl_gen_clear(mut g: yajl_gen) {
     if (*g).print
         == ::core::mem::transmute::<
-            Option<unsafe extern "C" fn(yajl_buf, *const libc::c_void, usize) -> ()>,
+            Option<unsafe extern "C" fn(*mut Buffer, *const libc::c_void, usize) -> ()>,
             yajl_print_t,
         >(Some(
-            yajl_buf_append as unsafe extern "C" fn(yajl_buf, *const libc::c_void, usize) -> (),
+            yajl_buf_append as unsafe extern "C" fn(*mut Buffer, *const libc::c_void, usize) -> (),
         ))
     {
-        yajl_buf_clear((*g).ctx as yajl_buf);
+        (*((*g).ctx as *mut Buffer)).clear();
     }
 }
