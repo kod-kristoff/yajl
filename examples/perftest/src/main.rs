@@ -53,7 +53,7 @@ unsafe extern "C" fn run(validate_utf8: bool) -> libc::c_int {
             stat = parser.complete_parse();
             if stat != Status::Ok {
                 let str: *mut libc::c_uchar = parser.get_error(
-                    1 as libc::c_int,
+                    true,
                     *d as *mut libc::c_uchar,
                     if !(*d).is_null() { libc::strlen(*d) } else { 0 },
                 );

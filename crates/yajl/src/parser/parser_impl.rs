@@ -1,5 +1,5 @@
 #![allow(clippy::missing_safety_doc)]
-use core::ffi::c_void;
+use core::ffi::{c_char, c_void};
 use core::ptr;
 
 use ::libc;
@@ -29,7 +29,7 @@ use crate::{
 #[allow(dead_code)]
 use crate::util_libc::{get_last_error, set_last_error};
 
-use super::Parser;
+use super::{ParseError, Parser};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
@@ -48,7 +48,7 @@ pub enum ParseState {
     ParseError = 2,
     ParseComplete = 1,
 }
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 #[repr(C)]
 pub struct ByteStack {
     stack: *mut ParseState,
@@ -204,128 +204,129 @@ pub unsafe extern "C" fn yajl_parse_integer(
     }
     sign as libc::c_longlong * ret
 }
-
-pub unsafe extern "C" fn yajl_render_error_string(
-    mut hand: yajl_handle,
-    mut jsonText: *const libc::c_uchar,
-    mut jsonTextLen: usize,
-    mut verbose: libc::c_int,
-) -> *mut libc::c_uchar {
-    let mut offset: usize = (*hand).bytesConsumed;
-    let mut str: *mut libc::c_uchar = std::ptr::null_mut::<libc::c_uchar>();
-    let mut errorType: *const libc::c_char = std::ptr::null::<libc::c_char>();
-    let mut errorText: *const libc::c_char = std::ptr::null::<libc::c_char>();
-    let mut text: [libc::c_char; 72] = [0; 72];
-    let mut arrow: *const libc::c_char =
-        b"                     (right here) ------^\n\0" as *const u8 as *const libc::c_char;
-    match (*hand).stateStack.top() {
-        ParseState::ParseError => {
-            errorType = b"parse\0" as *const u8 as *const libc::c_char;
-            errorText = (*hand).parseError;
+impl Parser {
+    pub unsafe fn render_error_string(
+        &self,
+        mut jsonText: *const libc::c_uchar,
+        mut jsonTextLen: usize,
+        mut verbose: bool,
+    ) -> *mut libc::c_uchar {
+        let mut offset: usize = self.bytesConsumed;
+        let mut str: *mut libc::c_uchar = std::ptr::null_mut::<libc::c_uchar>();
+        let mut errorType: *const c_char = ptr::null();
+        let mut errorText: *const c_char = ptr::null();
+        let mut text: [libc::c_char; 72] = [0; 72];
+        let mut arrow: *const libc::c_char =
+            b"                     (right here) ------^\n\0" as *const u8 as *const libc::c_char;
+        match self.stateStack.top() {
+            ParseState::ParseError => {
+                errorType = b"parse\0" as *const u8 as *const libc::c_char;
+                errorText = self.parseError.unwrap().to_c_str_ptr();
+            }
+            ParseState::LexicalError => {
+                errorType = b"lexical\0" as *const u8 as *const libc::c_char;
+                errorText = yajl_lex_error_to_string(yajl_lex_get_error(self.lexer));
+            }
+            _ => {
+                errorType = b"unknown\0" as *const u8 as *const libc::c_char;
+            }
         }
-        ParseState::LexicalError => {
-            errorType = b"lexical\0" as *const u8 as *const libc::c_char;
-            errorText = yajl_lex_error_to_string(yajl_lex_get_error((*hand).lexer));
+        let mut memneeded: usize = 0;
+        memneeded = (memneeded).wrapping_add(libc::strlen(errorType));
+        memneeded = (memneeded).wrapping_add(libc::strlen(
+            b" error\0" as *const u8 as *const libc::c_char,
+        ));
+        if !errorText.is_null() {
+            memneeded =
+                memneeded.wrapping_add(libc::strlen(b": \0" as *const u8 as *const libc::c_char));
+            memneeded = memneeded.wrapping_add(libc::strlen(errorText));
         }
-        _ => {
-            errorType = b"unknown\0" as *const u8 as *const libc::c_char;
+        str = (self.alloc.malloc).expect("non-null function pointer")(
+            self.alloc.ctx,
+            memneeded.wrapping_add(2 as libc::c_int as usize),
+        ) as *mut libc::c_uchar;
+        if str.is_null() {
+            return ptr::null_mut::<libc::c_uchar>();
         }
-    }
-    let mut memneeded: usize = 0;
-    memneeded = (memneeded).wrapping_add(libc::strlen(errorType));
-    memneeded = (memneeded).wrapping_add(libc::strlen(
-        b" error\0" as *const u8 as *const libc::c_char,
-    ));
-    if !errorText.is_null() {
-        memneeded =
-            memneeded.wrapping_add(libc::strlen(b": \0" as *const u8 as *const libc::c_char));
-        memneeded = memneeded.wrapping_add(libc::strlen(errorText));
-    }
-    str = ((*hand).alloc.malloc).expect("non-null function pointer")(
-        (*hand).alloc.ctx,
-        memneeded.wrapping_add(2 as libc::c_int as usize),
-    ) as *mut libc::c_uchar;
-    if str.is_null() {
-        return ptr::null_mut::<libc::c_uchar>();
-    }
-    *str.offset(0 as libc::c_int as isize) = 0 as libc::c_int as libc::c_uchar;
-    libc::strcat(str as *mut libc::c_char, errorType);
-    libc::strcat(
-        str as *mut libc::c_char,
-        b" error\0" as *const u8 as *const libc::c_char,
-    );
-    if !errorText.is_null() {
+        *str.offset(0 as libc::c_int as isize) = 0 as libc::c_int as libc::c_uchar;
+        libc::strcat(str as *mut libc::c_char, errorType);
         libc::strcat(
             str as *mut libc::c_char,
-            b": \0" as *const u8 as *const libc::c_char,
+            b" error\0" as *const u8 as *const libc::c_char,
         );
-        libc::strcat(str as *mut libc::c_char, errorText);
-    }
-    libc::strcat(
-        str as *mut libc::c_char,
-        b"\n\0" as *const u8 as *const libc::c_char,
-    );
-    if verbose != 0 {
-        let mut start: usize = 0;
-        let mut end: usize = 0;
-        let mut i: usize = 0;
-        let mut spacesNeeded: usize = 0;
-        spacesNeeded = if offset < 30 as libc::c_int as usize {
-            (40 as libc::c_int as usize).wrapping_sub(offset)
-        } else {
-            10 as libc::c_int as usize
-        };
-        start = if offset >= 30 as libc::c_int as usize {
-            offset.wrapping_sub(30 as libc::c_int as usize)
-        } else {
-            0 as libc::c_int as usize
-        };
-        end = if offset.wrapping_add(30 as libc::c_int as usize) > jsonTextLen {
-            jsonTextLen
-        } else {
-            offset.wrapping_add(30 as libc::c_int as usize)
-        };
-        i = 0 as libc::c_int as usize;
-        while i < spacesNeeded {
-            text[i] = ' ' as i32 as libc::c_char;
-            i = i.wrapping_add(1);
+        if !errorText.is_null() {
+            libc::strcat(
+                str as *mut libc::c_char,
+                b": \0" as *const u8 as *const libc::c_char,
+            );
+            libc::strcat(str as *mut libc::c_char, errorText);
         }
-        while start < end {
-            if *jsonText.add(start) as libc::c_int != '\n' as i32
-                && *jsonText.add(start) as libc::c_int != '\r' as i32
-            {
-                text[i] = *jsonText.add(start) as libc::c_char;
+        libc::strcat(
+            str as *mut libc::c_char,
+            b"\n\0" as *const u8 as *const libc::c_char,
+        );
+        if verbose {
+            let mut start: usize = 0;
+            let mut end: usize = 0;
+            let mut i: usize = 0;
+            let mut spacesNeeded: usize = 0;
+            spacesNeeded = if offset < 30 as libc::c_int as usize {
+                (40 as libc::c_int as usize).wrapping_sub(offset)
             } else {
+                10 as libc::c_int as usize
+            };
+            start = if offset >= 30 as libc::c_int as usize {
+                offset.wrapping_sub(30 as libc::c_int as usize)
+            } else {
+                0 as libc::c_int as usize
+            };
+            end = if offset.wrapping_add(30 as libc::c_int as usize) > jsonTextLen {
+                jsonTextLen
+            } else {
+                offset.wrapping_add(30 as libc::c_int as usize)
+            };
+            i = 0 as libc::c_int as usize;
+            while i < spacesNeeded {
                 text[i] = ' ' as i32 as libc::c_char;
+                i = i.wrapping_add(1);
             }
-            start = start.wrapping_add(1);
+            while start < end {
+                if *jsonText.add(start) as libc::c_int != '\n' as i32
+                    && *jsonText.add(start) as libc::c_int != '\r' as i32
+                {
+                    text[i] = *jsonText.add(start) as libc::c_char;
+                } else {
+                    text[i] = ' ' as i32 as libc::c_char;
+                }
+                start = start.wrapping_add(1);
+                i = i.wrapping_add(1);
+            }
+            let fresh1 = i;
             i = i.wrapping_add(1);
+            text[fresh1] = '\n' as i32 as libc::c_char;
+            text[i] = 0 as libc::c_int as libc::c_char;
+            let mut newStr: *mut libc::c_char = (self.alloc.malloc)
+                .expect("non-null function pointer")(
+                self.alloc.ctx,
+                (libc::strlen(str as *mut libc::c_char))
+                    .wrapping_add(libc::strlen(text.as_mut_ptr()))
+                    .wrapping_add(libc::strlen(arrow))
+                    .wrapping_add(1),
+            ) as *mut libc::c_char;
+            if !newStr.is_null() {
+                *newStr.offset(0 as libc::c_int as isize) = 0 as libc::c_int as libc::c_char;
+                libc::strcat(newStr, str as *mut libc::c_char);
+                libc::strcat(newStr, text.as_mut_ptr());
+                libc::strcat(newStr, arrow);
+            }
+            (self.alloc.free).expect("non-null function pointer")(
+                self.alloc.ctx,
+                str as *mut libc::c_void,
+            );
+            str = newStr as *mut libc::c_uchar;
         }
-        let fresh1 = i;
-        i = i.wrapping_add(1);
-        text[fresh1] = '\n' as i32 as libc::c_char;
-        text[i] = 0 as libc::c_int as libc::c_char;
-        let mut newStr: *mut libc::c_char = ((*hand).alloc.malloc)
-            .expect("non-null function pointer")(
-            (*hand).alloc.ctx,
-            (libc::strlen(str as *mut libc::c_char))
-                .wrapping_add(libc::strlen(text.as_mut_ptr()))
-                .wrapping_add(libc::strlen(arrow))
-                .wrapping_add(1),
-        ) as *mut libc::c_char;
-        if !newStr.is_null() {
-            *newStr.offset(0 as libc::c_int as isize) = 0 as libc::c_int as libc::c_char;
-            libc::strcat(newStr, str as *mut libc::c_char);
-            libc::strcat(newStr, text.as_mut_ptr());
-            libc::strcat(newStr, arrow);
-        }
-        ((*hand).alloc.free).expect("non-null function pointer")(
-            (*hand).alloc.ctx,
-            str as *mut libc::c_void,
-        );
-        str = newStr as *mut libc::c_uchar;
+        str
     }
-    str
 }
 impl Parser {
     pub unsafe fn do_finish(&mut self) -> Status {
@@ -339,7 +340,7 @@ impl Parser {
             _ => {
                 if self.flags & ParserOption::AllowPartialValues as u32 == 0 {
                     *self.stateStack.top_mut() = ParseState::ParseError;
-                    self.parseError = b"premature EOF\0" as *const u8 as *const libc::c_char;
+                    self.parseError = Some(ParseError::PrematureEof);
                     return Status::Error;
                 }
                 Status::Ok
@@ -380,8 +381,7 @@ impl Parser {
                         );
                         if tok as libc::c_uint != yajl_tok_eof as libc::c_int as libc::c_uint {
                             *self.stateStack.top_mut() = ParseState::ParseError;
-                            self.parseError =
-                                b"trailing garbage\0" as *const u8 as *const libc::c_char;
+                            self.parseError = Some(ParseError::TrailingGarbage);
                         }
                     }
                 }
@@ -415,10 +415,7 @@ impl Parser {
                                 ) == 0
                             {
                                 *self.stateStack.top_mut() = ParseState::ParseError;
-                                self.parseError =
-                                    b"client cancelled parse via callback return value\0"
-                                        as *const u8
-                                        as *const libc::c_char;
+                                self.parseError = Some(ParseError::ClientCancelled);
                                 return Status::ClientCanceled;
                             }
                             current_block = 6407515180622463684;
@@ -437,10 +434,7 @@ impl Parser {
                                 ) == 0
                                 {
                                     *self.stateStack.top_mut() = ParseState::ParseError;
-                                    self.parseError =
-                                        b"client cancelled parse via callback return value\0"
-                                            as *const u8
-                                            as *const libc::c_char;
+                                    self.parseError = Some(ParseError::ClientCancelled);
                                     return Status::ClientCanceled;
                                 }
                             }
@@ -456,10 +450,7 @@ impl Parser {
                                 ) == 0
                             {
                                 *self.stateStack.top_mut() = ParseState::ParseError;
-                                self.parseError =
-                                    b"client cancelled parse via callback return value\0"
-                                        as *const u8
-                                        as *const libc::c_char;
+                                self.parseError = Some(ParseError::ClientCancelled);
                                 return Status::ClientCanceled;
                             }
                             current_block = 6407515180622463684;
@@ -472,10 +463,7 @@ impl Parser {
                                 ) == 0
                             {
                                 *self.stateStack.top_mut() = ParseState::ParseError;
-                                self.parseError =
-                                    b"client cancelled parse via callback return value\0"
-                                        as *const u8
-                                        as *const libc::c_char;
+                                self.parseError = Some(ParseError::ClientCancelled);
                                 return Status::ClientCanceled;
                             }
                             current_block = 6407515180622463684;
@@ -489,10 +477,7 @@ impl Parser {
                                 ) == 0
                             {
                                 *self.stateStack.top_mut() = ParseState::ParseError;
-                                self.parseError =
-                                    b"client cancelled parse via callback return value\0"
-                                        as *const u8
-                                        as *const libc::c_char;
+                                self.parseError = Some(ParseError::ClientCancelled);
                                 return Status::ClientCanceled;
                             }
                             stateToPush = ParseState::MapStart;
@@ -507,10 +492,7 @@ impl Parser {
                                 ) == 0
                             {
                                 *self.stateStack.top_mut() = ParseState::ParseError;
-                                self.parseError =
-                                    b"client cancelled parse via callback return value\0"
-                                        as *const u8
-                                        as *const libc::c_char;
+                                self.parseError = Some(ParseError::ClientCancelled);
                                 return Status::ClientCanceled;
                             }
                             stateToPush = ParseState::ArrayStart;
@@ -527,10 +509,7 @@ impl Parser {
                                     ) == 0
                                     {
                                         *self.stateStack.top_mut() = ParseState::ParseError;
-                                        self.parseError =
-                                            b"client cancelled parse via callback return value\0"
-                                                as *const u8
-                                                as *const libc::c_char;
+                                        self.parseError = Some(ParseError::ClientCancelled);
                                         return Status::ClientCanceled;
                                     }
                                 } else if ((*self.callbacks).yajl_integer).is_some() {
@@ -545,8 +524,7 @@ impl Parser {
                                         && get_last_error() == 34 as libc::c_int
                                     {
                                         *self.stateStack.top_mut() = ParseState::ParseError;
-                                        self.parseError = b"integer overflow\0" as *const u8
-                                            as *const libc::c_char;
+                                        self.parseError = Some(ParseError::IntegerOverflow);
                                         if *offset >= bufLen {
                                             *offset = { *offset }.wrapping_sub(bufLen);
                                         } else {
@@ -559,10 +537,7 @@ impl Parser {
                                     ) == 0
                                     {
                                         *self.stateStack.top_mut() = ParseState::ParseError;
-                                        self.parseError =
-                                            b"client cancelled parse via callback return value\0"
-                                                as *const u8
-                                                as *const libc::c_char;
+                                        self.parseError = Some(ParseError::ClientCancelled);
                                         return Status::ClientCanceled;
                                     }
                                 }
@@ -582,10 +557,7 @@ impl Parser {
                                     ) == 0
                                     {
                                         *self.stateStack.top_mut() = ParseState::ParseError;
-                                        self.parseError =
-                                            b"client cancelled parse via callback return value\0"
-                                                as *const u8
-                                                as *const libc::c_char;
+                                        self.parseError = Some(ParseError::ClientCancelled);
                                         return Status::ClientCanceled;
                                     }
                                 } else if ((*self.callbacks).yajl_double).is_some() {
@@ -604,9 +576,7 @@ impl Parser {
                                     );
                                     if d.is_infinite() && get_last_error() == 34 as libc::c_int {
                                         *self.stateStack.top_mut() = ParseState::ParseError;
-                                        self.parseError = b"numeric (floating point) overflow\0"
-                                            as *const u8
-                                            as *const libc::c_char;
+                                        self.parseError = Some(ParseError::FloatingPointOverflow);
                                         if *offset >= bufLen {
                                             *offset = { *offset }.wrapping_sub(bufLen);
                                         } else {
@@ -619,10 +589,7 @@ impl Parser {
                                     ) == 0
                                     {
                                         *self.stateStack.top_mut() = ParseState::ParseError;
-                                        self.parseError =
-                                            b"client cancelled parse via callback return value\0"
-                                                as *const u8
-                                                as *const libc::c_char;
+                                        self.parseError = Some(ParseError::ClientCancelled);
                                         return Status::ClientCanceled;
                                     }
                                 }
@@ -641,10 +608,7 @@ impl Parser {
                                     ) == 0
                                 {
                                     *self.stateStack.top_mut() = ParseState::ParseError;
-                                    self.parseError =
-                                        b"client cancelled parse via callback return value\0"
-                                            as *const u8
-                                            as *const libc::c_char;
+                                    self.parseError = Some(ParseError::ClientCancelled);
                                     return Status::ClientCanceled;
                                 }
                                 self.stateStack.pop();
@@ -658,8 +622,7 @@ impl Parser {
                         }
                         _ => {
                             *self.stateStack.top_mut() = ParseState::ParseError;
-                            self.parseError = b"invalid token, internal error\0" as *const u8
-                                as *const libc::c_char;
+                            self.parseError = Some(ParseError::InvalidToken);
                             continue;
                         }
                     }
@@ -679,9 +642,7 @@ impl Parser {
                         }
                         _ => {
                             *self.stateStack.top_mut() = ParseState::ParseError;
-                            self.parseError = b"unallowed token at this point in JSON text\0"
-                                as *const u8
-                                as *const libc::c_char;
+                            self.parseError = Some(ParseError::UnallowedToken);
                         }
                     }
                 }
@@ -724,10 +685,7 @@ impl Parser {
                                     ) == 0
                                 {
                                     *self.stateStack.top_mut() = ParseState::ParseError;
-                                    self.parseError =
-                                        b"client cancelled parse via callback return value\0"
-                                            as *const u8
-                                            as *const libc::c_char;
+                                    self.parseError = Some(ParseError::ClientCancelled);
                                     return Status::ClientCanceled;
                                 }
                                 self.stateStack.pop();
@@ -750,19 +708,14 @@ impl Parser {
                                 ) == 0
                             {
                                 *self.stateStack.top_mut() = ParseState::ParseError;
-                                self.parseError =
-                                    b"client cancelled parse via callback return value\0"
-                                        as *const u8
-                                        as *const libc::c_char;
+                                self.parseError = Some(ParseError::ClientCancelled);
                                 return Status::ClientCanceled;
                             }
                             *self.stateStack.top_mut() = ParseState::MapSep;
                         }
                         _ => {
                             *self.stateStack.top_mut() = ParseState::ParseError;
-                            self.parseError = b"invalid object key (must be a string)\0"
-                                as *const u8
-                                as *const libc::c_char;
+                            self.parseError = Some(ParseError::InvalidObjectKey);
                         }
                     }
                 }
@@ -785,10 +738,7 @@ impl Parser {
                         }
                         _ => {
                             *self.stateStack.top_mut() = ParseState::ParseError;
-                            self.parseError =
-                                b"object key and value must be separated by a colon (':')\0"
-                                    as *const u8
-                                    as *const libc::c_char;
+                            self.parseError = Some(ParseError::InvalidKeyValueSeparator);
                         }
                     }
                 }
@@ -811,10 +761,7 @@ impl Parser {
                                 ) == 0
                             {
                                 *self.stateStack.top_mut() = ParseState::ParseError;
-                                self.parseError =
-                                    b"client cancelled parse via callback return value\0"
-                                        as *const u8
-                                        as *const libc::c_char;
+                                self.parseError = Some(ParseError::ClientCancelled);
                                 return Status::ClientCanceled;
                             }
                             self.stateStack.pop();
@@ -828,10 +775,7 @@ impl Parser {
                         }
                         _ => {
                             *self.stateStack.top_mut() = ParseState::ParseError;
-                            self.parseError =
-                                b"after key and value, inside map, I expect ',' or '}'\0"
-                                    as *const u8
-                                    as *const libc::c_char;
+                            self.parseError = Some(ParseError::InvalidObjectSeparator);
                             if *offset >= bufLen {
                                 *offset = { *offset }.wrapping_sub(bufLen);
                             } else {
@@ -859,10 +803,7 @@ impl Parser {
                                 ) == 0
                             {
                                 *self.stateStack.top_mut() = ParseState::ParseError;
-                                self.parseError =
-                                    b"client cancelled parse via callback return value\0"
-                                        as *const u8
-                                        as *const libc::c_char;
+                                self.parseError = Some(ParseError::ClientCancelled);
                                 return Status::ClientCanceled;
                             }
                             self.stateStack.pop();
@@ -876,9 +817,7 @@ impl Parser {
                         }
                         _ => {
                             *self.stateStack.top_mut() = ParseState::ParseError;
-                            self.parseError = b"after array element, I expect ',' or ']'\0"
-                                as *const u8
-                                as *const libc::c_char;
+                            self.parseError = Some(ParseError::InvalidArraySeparator);
                         }
                     }
                 }

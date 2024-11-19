@@ -1,7 +1,7 @@
 use ::libc;
-use core::ptr;
+use core::{ffi::c_char, ptr};
 pub(crate) use parser_impl::yajl_parse_integer;
-use parser_impl::{yajl_render_error_string, ByteStack, ParseState};
+use parser_impl::{ByteStack, ParseState};
 
 use crate::{
     yajl_alloc::{yajl_alloc_funcs, yajl_set_default_alloc_funcs},
@@ -12,18 +12,68 @@ use crate::{
 
 mod parser_impl;
 
-#[derive(Copy, Clone)]
+#[derive(Clone, Debug)]
 #[repr(C)]
 pub struct Parser {
     pub callbacks: *const yajl_callbacks,
     pub ctx: *mut libc::c_void,
     pub lexer: yajl_lexer,
-    pub parseError: *const libc::c_char,
+    pub parseError: Option<ParseError>,
     pub bytesConsumed: usize,
     pub decodeBuf: yajl_buf,
     pub stateStack: ByteStack,
     pub alloc: yajl_alloc_funcs,
     pub flags: libc::c_uint,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub enum ParseError {
+    ClientCancelled = 1,
+    FloatingPointOverflow,
+    IntegerOverflow,
+    InvalidArraySeparator,
+    InvalidKeyValueSeparator,
+    InvalidObjectKey,
+    InvalidObjectSeparator,
+    InvalidToken,
+    PrematureEof,
+    TrailingGarbage,
+    UnallowedToken,
+}
+
+impl ParseError {
+    fn to_c_str_ptr(&self) -> *const c_char {
+        match self {
+            Self::ClientCancelled => {
+                b"client cancelled parse via callback return value\0" as *const u8 as *const c_char
+            }
+            Self::FloatingPointOverflow => {
+                b"numeric (floating point) overflow\0" as *const u8 as *const c_char
+            }
+            Self::IntegerOverflow => b"integer overflow\0" as *const u8 as *const c_char,
+            Self::InvalidArraySeparator => {
+                b"after array element, I expect ',' or ']'\0" as *const u8 as *const c_char
+            }
+            Self::InvalidKeyValueSeparator => {
+                b"object key and value must be separated by a colon (':')\0" as *const u8
+                    as *const c_char
+            }
+            Self::InvalidObjectKey => {
+                b"invalid object key (must be a string)\0" as *const u8 as *const c_char
+            }
+            Self::InvalidObjectSeparator => {
+                b"after key and value, inside map, I expect ',' or '}'\0" as *const u8
+                    as *const c_char
+            }
+            Self::InvalidToken => b"invalid token, internal error\0" as *const u8 as *const c_char,
+            Self::PrematureEof => b"premature EOF\0" as *const u8 as *const c_char,
+            Self::TrailingGarbage => b"trailing garbage\0" as *const u8 as *const c_char,
+            Self::UnallowedToken => {
+                b"unallowed token at this point in JSON text\0" as *const u8 as *const c_char
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -262,11 +312,11 @@ impl Parser {
 
     pub unsafe fn get_error(
         &mut self,
-        mut verbose: libc::c_int,
+        mut verbose: bool,
         mut jsonText: *const libc::c_uchar,
         mut jsonTextLen: usize,
     ) -> *mut libc::c_uchar {
-        yajl_render_error_string(self, jsonText, jsonTextLen, verbose)
+        self.render_error_string(jsonText, jsonTextLen, verbose)
     }
 
     pub fn get_bytes_consumed(&self) -> usize {

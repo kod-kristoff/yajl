@@ -78,8 +78,7 @@ unsafe fn main_0(_argc: libc::c_int, _argv: *mut *mut libc::c_char) -> libc::c_i
     stat = parser.complete_parse();
     if stat != Status::Ok {
         if quiet == 0 {
-            let str: *mut libc::c_uchar =
-                parser.get_error(1 as libc::c_int, filedata.as_mut_ptr(), rd);
+            let str: *mut libc::c_uchar = parser.get_error(true, filedata.as_mut_ptr(), rd);
 
             libc::write(
                 libc::STDERR_FILENO,

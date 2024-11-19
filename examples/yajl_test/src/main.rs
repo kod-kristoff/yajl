@@ -263,8 +263,7 @@ unsafe fn main_0(args: Vec<String>) -> libc::c_int {
     }
     stat = parser.complete_parse();
     if stat != Status::Ok {
-        let str: *mut libc::c_uchar =
-            parser.get_error(0 as libc::c_int, file_data.as_mut_ptr(), rd);
+        let str: *mut libc::c_uchar = parser.get_error(false, file_data.as_mut_ptr(), rd);
 
         eprint!("{}", CStr::from_ptr(str as *const i8).to_str().unwrap());
         parser.free_error(str);
