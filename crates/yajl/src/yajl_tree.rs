@@ -8,7 +8,6 @@ use ::libc;
 use crate::{
     parser::{yajl_callbacks, yajl_parse_integer, Parser},
     yajl_alloc::yajl_alloc_funcs,
-    yajl_buf::yajl_buf_t,
     yajl_lex::yajl_lexer_t,
     ParserOption, Status,
 };
@@ -77,7 +76,6 @@ pub struct stack_elem_s {
 }
 pub type yajl_handle = *mut Parser;
 
-pub type yajl_bytestack = yajl_bytestack_t;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct yajl_bytestack_t {
@@ -86,7 +84,6 @@ pub struct yajl_bytestack_t {
     pub used: usize,
     pub yaf: *mut yajl_alloc_funcs,
 }
-pub type yajl_buf = *mut yajl_buf_t;
 pub type yajl_lexer = *mut yajl_lexer_t;
 
 #[cfg(any(

@@ -5,7 +5,7 @@ use parser_impl::{ByteStack, ParseState};
 
 use crate::{
     yajl_alloc::{yajl_alloc_funcs, yajl_set_default_alloc_funcs},
-    yajl_buf::{yajl_buf_alloc, yajl_buf_free, yajl_buf_t},
+    yajl_buf::Buffer,
     yajl_lex::{yajl_lex_alloc, yajl_lex_free, yajl_lexer_t},
     Status,
 };
@@ -20,7 +20,7 @@ pub struct Parser {
     pub lexer: yajl_lexer,
     pub parseError: Option<ParseError>,
     pub bytesConsumed: usize,
-    pub decodeBuf: yajl_buf,
+    pub decodeBuf: *mut Buffer,
     pub stateStack: ByteStack,
     pub alloc: yajl_alloc_funcs,
     pub flags: libc::c_uint,
@@ -129,7 +129,6 @@ pub struct __va_list_tag {
     pub reg_save_area: *mut libc::c_void,
 }
 
-pub type yajl_buf = *mut yajl_buf_t;
 pub type yajl_lexer = *mut yajl_lexer_t;
 
 pub unsafe extern "C" fn yajl_status_to_string(stat: Status) -> *const libc::c_char {
@@ -198,7 +197,7 @@ impl Parser {
         (*hand).ctx = ctx;
         (*hand).lexer = ptr::null_mut();
         (*hand).bytesConsumed = 0;
-        (*hand).decodeBuf = yajl_buf_alloc(&mut (*hand).alloc);
+        (*hand).decodeBuf = Buffer::alloc(&mut (*hand).alloc);
         (*hand).flags = 0;
         (*hand).stateStack = ByteStack::new(&mut (*hand).alloc);
 
@@ -260,7 +259,7 @@ impl Parser {
 
     pub unsafe fn free(mut handle: *mut Parser) {
         (*handle).stateStack.free();
-        yajl_buf_free((*handle).decodeBuf);
+        Buffer::free((*handle).decodeBuf);
         if !((*handle).lexer).is_null() {
             yajl_lex_free((*handle).lexer);
             (*handle).lexer = ptr::null_mut();
