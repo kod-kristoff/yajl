@@ -1,6 +1,6 @@
 use ::libc;
 
-use crate::yajl_buf::Buffer;
+use crate::buffer::Buffer;
 
 type yajl_buf = *mut Buffer;
 pub type yajl_print_t =

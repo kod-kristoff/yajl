@@ -11,10 +11,10 @@
 #![cfg_attr(feature = "nightly", feature(extern_types))]
 
 extern crate libc;
+pub(crate) mod buffer;
 pub mod parser;
 pub mod status;
 pub mod yajl_alloc;
-pub mod yajl_buf;
 pub mod yajl_encode;
 pub mod yajl_gen;
 pub mod yajl_lex;
