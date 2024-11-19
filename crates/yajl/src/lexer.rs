@@ -1,4 +1,4 @@
-use ::libc;
+use core::ffi::{c_char, c_void};
 
 use crate::{buffer::Buffer, yajl_alloc::yajl_alloc_funcs};
 
@@ -26,7 +26,7 @@ pub enum Token {
 pub struct Lexer {
     pub lineOff: usize,
     pub charOff: usize,
-    pub error: yajl_lex_error,
+    pub error: LexError,
     pub buf: *mut Buffer,
     pub bufOff: usize,
     pub bufInUse: libc::c_uint,
@@ -34,18 +34,21 @@ pub struct Lexer {
     pub validateUTF8: libc::c_uint,
     pub alloc: *mut yajl_alloc_funcs,
 }
-pub type yajl_lex_error = libc::c_uint;
-pub const yajl_lex_unallowed_comment: yajl_lex_error = 10;
-pub const yajl_lex_missing_integer_after_minus: yajl_lex_error = 9;
-pub const yajl_lex_missing_integer_after_exponent: yajl_lex_error = 8;
-pub const yajl_lex_missing_integer_after_decimal: yajl_lex_error = 7;
-pub const yajl_lex_invalid_string: yajl_lex_error = 6;
-pub const yajl_lex_invalid_char: yajl_lex_error = 5;
-pub const yajl_lex_string_invalid_hex_char: yajl_lex_error = 4;
-pub const yajl_lex_string_invalid_json_char: yajl_lex_error = 3;
-pub const yajl_lex_string_invalid_escaped_char: yajl_lex_error = 2;
-pub const yajl_lex_string_invalid_utf8: yajl_lex_error = 1;
-pub const yajl_lex_e_ok: yajl_lex_error = 0;
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[repr(u8)]
+pub enum LexError {
+    UnallowedComment = 10,
+    MissingIntegerAfterMinus = 9,
+    MissingIntegerAfterExponent = 8,
+    MissingIntegerAfterDecimal = 7,
+    InvalidString = 6,
+    InvalidChar = 5,
+    StringInvalidHexChar = 4,
+    StringInvalidJsonChar = 3,
+    StringInvalidEscapedChar = 2,
+    StringInvalidUtf8 = 1,
+    Ok = 0,
+}
 
 impl Lexer {
     pub unsafe fn alloc(
@@ -57,9 +60,13 @@ impl Lexer {
             (*alloc).ctx,
             ::core::mem::size_of::<Lexer>(),
         ) as *mut Lexer;
-        std::ptr::write_bytes(lxr, 0, 1);
 
+        (*lxr).lineOff = 0;
+        (*lxr).charOff = 0;
+        (*lxr).error = LexError::Ok;
         (*lxr).buf = Buffer::alloc(alloc);
+        (*lxr).bufOff = 0;
+        (*lxr).bufInUse = 0;
         (*lxr).allowComments = allowComments;
         (*lxr).validateUTF8 = validateUTF8;
         (*lxr).alloc = alloc;
@@ -70,7 +77,7 @@ impl Lexer {
         Buffer::free((*lxr).buf);
         ((*(*lxr).alloc).free).expect("non-null function pointer")(
             (*(*lxr).alloc).ctx,
-            lxr as *mut libc::c_void,
+            lxr as *mut c_void,
         );
     }
 }
@@ -567,7 +574,7 @@ impl Lexer {
                                         } else {
                                             self.bufOff = (self.bufOff).wrapping_sub(1);
                                         };
-                                        self.error = yajl_lex_string_invalid_hex_char;
+                                        self.error = LexError::StringInvalidHexChar;
                                         break 's_10;
                                     } else {
                                         i = i.wrapping_add(1);
@@ -585,7 +592,7 @@ impl Lexer {
                             } else {
                                 self.bufOff = (self.bufOff).wrapping_sub(1);
                             };
-                            self.error = yajl_lex_string_invalid_escaped_char;
+                            self.error = LexError::StringInvalidEscapedChar;
                             break;
                         }
                     }
@@ -596,7 +603,7 @@ impl Lexer {
                     } else {
                         self.bufOff = (self.bufOff).wrapping_sub(1);
                     };
-                    self.error = yajl_lex_string_invalid_json_char;
+                    self.error = LexError::StringInvalidJsonChar;
                     break;
                 } else {
                     if self.validateUTF8 == 0 {
@@ -610,7 +617,7 @@ impl Lexer {
                         if t != Token::Error {
                             continue;
                         }
-                        self.error = yajl_lex_string_invalid_utf8;
+                        self.error = LexError::StringInvalidUtf8;
                         break;
                     }
                 }
@@ -697,7 +704,7 @@ impl Lexer {
             } else {
                 self.bufOff = (self.bufOff).wrapping_sub(1);
             };
-            self.error = yajl_lex_missing_integer_after_minus;
+            self.error = LexError::MissingIntegerAfterMinus;
             return Token::Error;
         }
         if c as libc::c_int == '.' as i32 {
@@ -739,7 +746,7 @@ impl Lexer {
                 } else {
                     self.bufOff = (self.bufOff).wrapping_sub(1);
                 };
-                self.error = yajl_lex_missing_integer_after_decimal;
+                self.error = LexError::MissingIntegerAfterDecimal;
                 return Token::Error;
             }
             tok = Token::Double;
@@ -802,7 +809,7 @@ impl Lexer {
                 } else {
                     self.bufOff = (self.bufOff).wrapping_sub(1);
                 };
-                self.error = yajl_lex_missing_integer_after_exponent;
+                self.error = LexError::MissingIntegerAfterExponent;
                 return Token::Error;
             }
             tok = Token::Double;
@@ -900,7 +907,7 @@ impl Lexer {
                 };
             }
         } else {
-            self.error = yajl_lex_invalid_char;
+            self.error = LexError::InvalidChar;
             tok = Token::Error;
         }
         tok
@@ -990,7 +997,7 @@ impl Lexer {
                                     } else {
                                         self.bufOff = (self.bufOff).wrapping_sub(1);
                                     };
-                                    self.error = yajl_lex_invalid_string;
+                                    self.error = LexError::InvalidString;
                                     tok = Token::Error;
                                     break 's_21;
                                 } else {
@@ -1030,7 +1037,7 @@ impl Lexer {
                                     } else {
                                         self.bufOff = (self.bufOff).wrapping_sub(1);
                                     };
-                                    self.error = yajl_lex_invalid_string;
+                                    self.error = LexError::InvalidString;
                                     tok = Token::Error;
                                     break 's_21;
                                 } else {
@@ -1070,7 +1077,7 @@ impl Lexer {
                                     } else {
                                         self.bufOff = (self.bufOff).wrapping_sub(1);
                                     };
-                                    self.error = yajl_lex_invalid_string;
+                                    self.error = LexError::InvalidString;
                                     tok = Token::Error;
                                     break 's_21;
                                 } else {
@@ -1104,7 +1111,7 @@ impl Lexer {
                             } else {
                                 self.bufOff = (self.bufOff).wrapping_sub(1);
                             };
-                            self.error = yajl_lex_unallowed_comment;
+                            self.error = LexError::UnallowedComment;
                             tok = Token::Error;
                             break;
                         } else {
@@ -1119,7 +1126,7 @@ impl Lexer {
                         }
                     }
                     _ => {
-                        self.error = yajl_lex_invalid_char;
+                        self.error = LexError::InvalidChar;
                         tok = Token::Error;
                         break;
                     }
@@ -1135,7 +1142,7 @@ impl Lexer {
                 jsonText.add(startOffset) as *const libc::c_void,
                 (*offset).wrapping_sub(startOffset),
             );
-            self.bufOff = 0 as libc::c_int as usize;
+            self.bufOff = 0;
             if tok != Token::Eof {
                 *outBuf = (*self.buf).data();
                 *outLen = (*self.buf).len();
@@ -1152,47 +1159,47 @@ impl Lexer {
         tok
     }
 }
-pub unsafe fn yajl_lex_error_to_string(mut error: yajl_lex_error) -> *const libc::c_char {
-    match error as libc::c_uint {
-        0 => return b"ok, no error\0" as *const u8 as *const libc::c_char,
-        1 => {
-            return b"invalid bytes in UTF8 string.\0" as *const u8 as *const libc::c_char;
+impl LexError {
+    pub fn to_c_str_ptr(&self) -> *const c_char {
+        match *self {
+            Self::Ok => b"ok, no error\0" as *const u8 as *const c_char,
+            Self::StringInvalidUtf8 => {
+                b"invalid bytes in UTF8 string.\0" as *const u8 as *const c_char
+            }
+            Self::StringInvalidEscapedChar => {
+                b"inside a string, '\\' occurs before a character which it may not.\0" as *const u8
+                    as *const c_char
+            }
+            Self::StringInvalidJsonChar => {
+                b"invalid character inside string.\0" as *const u8 as *const c_char
+            }
+            Self::StringInvalidHexChar => {
+                b"invalid (non-hex) character occurs after '\\u' inside string.\0" as *const u8
+                    as *const c_char
+            }
+            Self::InvalidChar => b"invalid char in json text.\0" as *const u8 as *const c_char,
+            Self::InvalidString => b"invalid string in json text.\0" as *const u8 as *const c_char,
+            Self::MissingIntegerAfterExponent => {
+                b"malformed number, a digit is required after the exponent.\0" as *const u8
+                    as *const c_char
+            }
+            Self::MissingIntegerAfterDecimal => {
+                b"malformed number, a digit is required after the decimal point.\0" as *const u8
+                    as *const c_char
+            }
+            Self::MissingIntegerAfterMinus => {
+                b"malformed number, a digit is required after the minus sign.\0" as *const u8
+                    as *const c_char
+            }
+            Self::UnallowedComment => {
+                b"probable comment found in input text, comments are not enabled.\0" as *const u8
+                    as *const c_char
+            }
         }
-        2 => {
-            return b"inside a string, '\\' occurs before a character which it may not.\0"
-                as *const u8 as *const libc::c_char;
-        }
-        3 => {
-            return b"invalid character inside string.\0" as *const u8 as *const libc::c_char;
-        }
-        4 => {
-            return b"invalid (non-hex) character occurs after '\\u' inside string.\0" as *const u8
-                as *const libc::c_char;
-        }
-        5 => return b"invalid char in json text.\0" as *const u8 as *const libc::c_char,
-        6 => return b"invalid string in json text.\0" as *const u8 as *const libc::c_char,
-        8 => {
-            return b"malformed number, a digit is required after the exponent.\0" as *const u8
-                as *const libc::c_char;
-        }
-        7 => {
-            return b"malformed number, a digit is required after the decimal point.\0" as *const u8
-                as *const libc::c_char;
-        }
-        9 => {
-            return b"malformed number, a digit is required after the minus sign.\0" as *const u8
-                as *const libc::c_char;
-        }
-        10 => {
-            return b"probable comment found in input text, comments are not enabled.\0" as *const u8
-                as *const libc::c_char;
-        }
-        _ => {}
     }
-    b"unknown error code\0" as *const u8 as *const libc::c_char
 }
 impl Lexer {
-    pub fn get_error(&self) -> yajl_lex_error {
+    pub fn get_error(&self) -> LexError {
         self.error
     }
 
