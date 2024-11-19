@@ -159,14 +159,14 @@ static mut callbacks: yajl_callbacks = yajl_callbacks {
         test_yajl_end_array as unsafe extern "C" fn(*mut libc::c_void) -> libc::c_int,
     ),
 };
-unsafe extern "C" fn usage(progname: *const libc::c_char) -> ! {
+fn usage(progname: &str) -> ! {
     eprintln!("usage:  {} [options]\nParse input from stdin as JSON and output parsing details to stdout\n   -b  set the read buffer size\n   -c  allow comments\n   -g  allow *g*arbage after valid JSON text\n   -m  allows the parser to consume multiple JSON values\n       from a single string separated by whitespace\n   -p  partial JSON documents should not cause errors\n",
-        CStr::from_ptr(progname).to_str().unwrap());
+        progname);
 
     std::process::exit(1)
 }
-unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int {
-    let mut fileName: *const libc::c_char = std::ptr::null::<libc::c_char>();
+unsafe fn main_0(args: Vec<String>) -> libc::c_int {
+    let mut fileName: Option<&str> = None;
     let mut bufSize: usize = 2048;
     let mut stat;
     let mut rd: usize;
@@ -199,99 +199,63 @@ unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int
         std::ptr::null_mut::<libc::c_void>(),
     );
     let parser = unsafe { &mut *hand };
-    let mut i = 1 as libc::c_int;
+    let mut i = 1;
+    let argc = args.len();
     while i < argc {
-        if libc::strcmp(
-            b"-c\0" as *const u8 as *const libc::c_char,
-            *argv.offset(i as isize),
-        ) == 0
-        {
+        if args[i] == "-c" {
             parser.config(ParserOption::AllowComments, true);
-        } else if libc::strcmp(
-            b"-b\0" as *const u8 as *const libc::c_char,
-            *argv.offset(i as isize),
-        ) == 0
-        {
+        } else if args[i] == "-b" {
             i += 1;
             if i >= argc {
-                usage(*argv.offset(0 as libc::c_int as isize));
+                usage(&args[0]);
             }
-            j = 0 as libc::c_int;
-            while j < libc::strlen(*argv.offset(i as isize)) as libc::c_int {
-                if !(*(*argv.offset(i as isize)).offset(j as isize) as libc::c_int <= '9' as i32
-                    && *(*argv.offset(i as isize)).offset(j as isize) as libc::c_int >= '0' as i32)
-                {
+            bufSize = match args[i].parse() {
+                Err(err) => {
                     eprintln!(
-                        "-b requires an integer argument. '{}' is invalid",
-                        CStr::from_ptr(*argv.offset(i as isize)).to_str().unwrap()
+                        "-b requires an integer argument. '{}' is invalid: {}",
+                        args[i], err
                     );
-
-                    usage(*argv.offset(0 as libc::c_int as isize));
+                    usage(&args[0]);
                 }
-                j += 1;
-            }
-            bufSize = atoi(*argv.offset(i as isize)) as usize;
-            if bufSize == 0 {
-                eprintln!("{} is an invalid buffer size", bufSize);
-            }
-        } else if libc::strcmp(
-            b"-g\0" as *const u8 as *const libc::c_char,
-            *argv.offset(i as isize),
-        ) == 0
-        {
+                Ok(buf_size) => buf_size,
+            };
+        } else if args[i] == "-g" {
             parser.config(ParserOption::AllowTrailingGarbage, true);
-        } else if libc::strcmp(
-            b"-m\0" as *const u8 as *const libc::c_char,
-            *argv.offset(i as isize),
-        ) == 0
-        {
+        } else if args[i] == "-m" {
             parser.config(ParserOption::AllowMultipleValues, true);
-        } else if libc::strcmp(
-            b"-p\0" as *const u8 as *const libc::c_char,
-            *argv.offset(i as isize),
-        ) == 0
-        {
+        } else if args[i] == "-p" {
             parser.config(ParserOption::AllowPartialValues, true);
         } else {
-            fileName = *argv.offset(i as isize);
+            fileName = Some(&args[i]);
             break;
         }
         i += 1;
     }
-    let fileData = libc::malloc(bufSize) as *mut libc::c_uchar;
-    if fileData.is_null() {
-        eprintln!(
-            "failed to allocate read buffer of {} bytes, exiting",
-            bufSize
-        );
-        Parser::free(hand);
-        process::exit(2);
-    }
-    let file_data = unsafe { slice::from_raw_parts_mut(fileData, bufSize) };
-    let slice = CStr::from_ptr(fileName);
-    let osstr = OsStr::from_bytes(slice.to_bytes());
-    let file_path: &Path = osstr.as_ref();
-    let mut file: Box<dyn io::BufRead> = if !fileName.is_null() {
+
+    let mut file_data = vec![0; bufSize];
+    let mut file: Box<dyn io::BufRead> = if let Some(file_path) = fileName {
         let file = File::open(file_path).expect("an existing file");
         let reader = io::BufReader::new(file);
         Box::new(reader)
     } else {
         Box::new(io::stdin().lock())
     };
-
     loop {
-        rd = match file.read(file_data) {
+        rd = match file.read(&mut file_data) {
             Ok(rd) => rd,
             Err(err) => {
-                eprintln!("error reading from '{}': {}", file_path.display(), err);
+                eprintln!(
+                    "error reading from '{}': {}",
+                    fileName.unwrap_or("stdin"),
+                    err
+                );
                 process::exit(2);
             }
         };
-
         if rd == 0 as libc::c_int as usize {
             break;
         } else {
-            stat = parser.parse(fileData, rd);
+            stat = parser.parse(file_data.as_mut_ptr(), rd);
             if stat != Status::Ok {
                 break;
             }
@@ -299,29 +263,20 @@ unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int
     }
     stat = parser.complete_parse();
     if stat != Status::Ok {
-        let str: *mut libc::c_uchar = parser.get_error(0 as libc::c_int, fileData, rd);
+        let str: *mut libc::c_uchar =
+            parser.get_error(0 as libc::c_int, file_data.as_mut_ptr(), rd);
 
         eprint!("{}", CStr::from_ptr(str as *const i8).to_str().unwrap());
         parser.free_error(str);
     }
     Parser::free(hand);
-    libc::free(fileData as *mut libc::c_void);
 
     println!("memory leaks:\t{}", memCtx.numMallocs - memCtx.numFrees);
     assert_eq!(memCtx.numMallocs, memCtx.numFrees, "memory leak detected");
     0 as libc::c_int
 }
 pub fn main() {
-    let mut args: Vec<*mut libc::c_char> = Vec::new();
-    for arg in ::std::env::args() {
-        args.push(
-            (::std::ffi::CString::new(arg))
-                .expect("Failed to convert argument into CString.")
-                .into_raw(),
-        );
-    }
-    args.push(::core::ptr::null_mut());
-    unsafe {
-        ::std::process::exit(main_0((args.len() - 1) as libc::c_int, args.as_mut_ptr()) as i32)
-    }
+    let args: Vec<String> = std::env::args().collect();
+
+    unsafe { ::std::process::exit(main_0(args)) }
 }
