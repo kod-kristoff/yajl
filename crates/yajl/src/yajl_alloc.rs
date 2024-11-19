@@ -5,7 +5,7 @@ pub type yajl_malloc_func =
 pub type yajl_free_func = Option<unsafe extern "C" fn(*mut libc::c_void, *mut libc::c_void) -> ()>;
 pub type yajl_realloc_func =
     Option<unsafe extern "C" fn(*mut libc::c_void, *mut libc::c_void, usize) -> *mut libc::c_void>;
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 #[repr(C)]
 pub struct yajl_alloc_funcs {
     pub malloc: yajl_malloc_func,

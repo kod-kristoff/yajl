@@ -128,32 +128,9 @@ pub struct __va_list_tag {
     pub overflow_arg_area: *mut libc::c_void,
     pub reg_save_area: *mut libc::c_void,
 }
-pub type yajl_malloc_func =
-    Option<unsafe extern "C" fn(*mut libc::c_void, usize) -> *mut libc::c_void>;
-pub type yajl_free_func = Option<unsafe extern "C" fn(*mut libc::c_void, *mut libc::c_void) -> ()>;
-pub type yajl_realloc_func =
-    Option<unsafe extern "C" fn(*mut libc::c_void, *mut libc::c_void, usize) -> *mut libc::c_void>;
 
 pub type yajl_buf = *mut yajl_buf_t;
 pub type yajl_lexer = *mut yajl_lexer_t;
-
-pub type yajl_handle = *mut Parser;
-pub const yajl_state_start: C2RustUnnamed = 0;
-
-pub type va_list = __builtin_va_list;
-pub type C2RustUnnamed = libc::c_uint;
-pub const yajl_state_got_value: C2RustUnnamed = 12;
-pub const yajl_state_array_need_val: C2RustUnnamed = 11;
-pub const yajl_state_array_got_val: C2RustUnnamed = 10;
-pub const yajl_state_array_start: C2RustUnnamed = 9;
-pub const yajl_state_map_need_key: C2RustUnnamed = 8;
-pub const yajl_state_map_got_val: C2RustUnnamed = 7;
-pub const yajl_state_map_need_val: C2RustUnnamed = 6;
-pub const yajl_state_map_sep: C2RustUnnamed = 5;
-pub const yajl_state_map_start: C2RustUnnamed = 4;
-pub const yajl_state_lexical_error: C2RustUnnamed = 3;
-pub const yajl_state_parse_error: C2RustUnnamed = 2;
-pub const yajl_state_parse_complete: C2RustUnnamed = 1;
 
 pub unsafe extern "C" fn yajl_status_to_string(stat: Status) -> *const libc::c_char {
     let mut statStr: *const libc::c_char = b"unknown\0" as *const u8 as *const libc::c_char;
@@ -211,7 +188,7 @@ impl Parser {
         hand = ((*afs).malloc).expect("non-null function pointer")(
             (*afs).ctx,
             ::core::mem::size_of::<Parser>(),
-        ) as yajl_handle;
+        ) as *mut Parser;
         libc::memcpy(
             &mut (*hand).alloc as *mut yajl_alloc_funcs as *mut libc::c_void,
             afs as *mut libc::c_void,
@@ -224,38 +201,64 @@ impl Parser {
         (*hand).decodeBuf = yajl_buf_alloc(&mut (*hand).alloc);
         (*hand).flags = 0;
         (*hand).stateStack = ByteStack::new(&mut (*hand).alloc);
-        // (*hand).stateStack.stack = ptr::null_mut::<libc::c_uchar>();
-        // (*hand).stateStack.size = 0;
-        // (*hand).stateStack.used = 0;
-        // (*hand).stateStack.yaf = &mut (*hand).alloc;
-        // if ((*hand).stateStack.size).wrapping_sub((*hand).stateStack.used) == 0 {
-        //     (*hand).stateStack.size = ((*hand).stateStack.size).wrapping_add(128);
-        //     (*hand).stateStack.stack = ((*(*hand).stateStack.yaf).realloc)
-        //         .expect("non-null function pointer")(
-        //         (*(*hand).stateStack.yaf).ctx,
-        //         (*hand).stateStack.stack as *mut libc::c_void,
-        //         (*hand).stateStack.size,
-        //     ) as *mut libc::c_uchar;
-        // }
-        // let fresh0 = (*hand).stateStack.used;
-        // (*hand).stateStack.used = ((*hand).stateStack.used).wrapping_add(1);
-        // *((*hand).stateStack.stack).add(fresh0) = yajl_state_start as u8;
+
         (*hand).stateStack.push(ParseState::Start);
         hand
     }
-    // pub fn new(mut callbacks: *const yajl_callbacks,
-    // mut afs: *mut yajl_alloc_funcs,
-    // mut ctx: *mut libc::c_void,) -> Self {
-    //     Self { callbacks: callbacks, ctx: ctx, lexer: ptr::null_mut(), parseError: ptr::null(), bytesConsumed: 0, decodeBuf: (), stateStack: (), alloc: (), flags: () }
+    // pub fn new(
+    //     mut callbacks: *const yajl_callbacks,
+    //     mut afs: *mut yajl_alloc_funcs,
+    //     mut ctx: *mut libc::c_void,
+    // ) -> Result<Self, String> {
+    //     let mut afsBuffer: yajl_alloc_funcs = yajl_alloc_funcs {
+    //         malloc: None,
+    //         realloc: None,
+    //         free: None,
+    //         ctx: ptr::null_mut::<libc::c_void>(),
+    //     };
+    //     let mut alloc: yajl_alloc_funcs = yajl_alloc_funcs {
+    //         malloc: None,
+    //         realloc: None,
+    //         free: None,
+    //         ctx: ptr::null_mut::<libc::c_void>(),
+    //     };
+    //     unsafe {
+    //         if !afs.is_null() {
+    //             if ((*afs).malloc).is_none()
+    //                 || ((*afs).realloc).is_none()
+    //                 || ((*afs).free).is_none()
+    //             {
+    //                 return Err("Given afs is not valid".into());
+    //             }
+    //         } else {
+    //             yajl_set_default_alloc_funcs(&mut afsBuffer);
+    //             afs = &mut afsBuffer;
+    //         }
+    //         libc::memcpy(
+    //             addr_of_mut!(alloc) as *mut yajl_alloc_funcs as *mut libc::c_void,
+    //             afs as *mut libc::c_void,
+    //             ::core::mem::size_of::<yajl_alloc_funcs>(),
+    //         );
+    //     }
+
+    //     let mut res = Self {
+    //         callbacks,
+    //         ctx,
+    //         lexer: ptr::null_mut(),
+    //         parseError: ptr::null(),
+    //         bytesConsumed: 0,
+    //         decodeBuf: ptr::null_mut(),
+    //         stateStack: ByteStack::new(addr_of_mut!(alloc)),
+    //         alloc,
+    //         flags: 0,
+    //     };
+    //     res.decodeBuf = unsafe { yajl_buf_alloc(addr_of_mut!(res.alloc)) };
+    //     // This line is needed, must take the address of res.alloc
+    //     res.stateStack = ByteStack::new(addr_of_mut!(res.alloc));
+    //     Ok(res)
     // }
 
-    pub unsafe fn free(mut handle: yajl_handle) {
-        // if !((*handle).stateStack.stack).is_null() {
-        //     ((*(*handle).stateStack.yaf).free).expect("non-null function pointer")(
-        //         (*(*handle).stateStack.yaf).ctx,
-        //         (*handle).stateStack.stack as *mut libc::c_void,
-        //     );
-        // }
+    pub unsafe fn free(mut handle: *mut Parser) {
         (*handle).stateStack.free();
         yajl_buf_free((*handle).decodeBuf);
         if !((*handle).lexer).is_null() {
@@ -268,19 +271,25 @@ impl Parser {
         );
     }
 }
+
+// impl Drop for Parser {
+//     fn drop(&mut self) {
+//         self.stateStack.free();
+//         unsafe { yajl_buf_free(self.decodeBuf) };
+//         if !(self.lexer).is_null() {
+//             unsafe { yajl_lex_free(self.lexer) };
+//             self.lexer = ptr::null_mut();
+//         }
+//     }
+// }
 impl Parser {
     pub fn config(&mut self, opt: ParserOption, arg: bool) -> bool {
-        match opt as u32 {
-            1 | 2 | 4 | 8 | 16 => {
-                if arg {
-                    self.flags |= opt as u32;
-                } else {
-                    self.flags &= !(opt as u32);
-                }
-                true
-            }
-            _ => false,
+        if arg {
+            self.flags |= opt as u32;
+        } else {
+            self.flags &= !(opt as u32);
         }
+        true
     }
     pub unsafe fn parse(
         &mut self,

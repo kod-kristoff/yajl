@@ -13,12 +13,6 @@ use crate::{
     ParserOption, Status,
 };
 
-pub type yajl_malloc_func =
-    Option<unsafe extern "C" fn(*mut libc::c_void, usize) -> *mut libc::c_void>;
-pub type yajl_free_func = Option<unsafe extern "C" fn(*mut libc::c_void, *mut libc::c_void) -> ()>;
-pub type yajl_realloc_func =
-    Option<unsafe extern "C" fn(*mut libc::c_void, *mut libc::c_void, usize) -> *mut libc::c_void>;
-
 pub type yajl_type = libc::c_uint;
 pub const yajl_t_any: yajl_type = 8;
 pub const yajl_t_null: yajl_type = 7;

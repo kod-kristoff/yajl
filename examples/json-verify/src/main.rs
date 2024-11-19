@@ -5,7 +5,7 @@ use std::{
 
 use ::libc;
 use yajl::{
-    parser::{yajl_callbacks, yajl_handle, Parser},
+    parser::{yajl_callbacks, Parser},
     yajl_alloc::yajl_alloc_funcs,
     ParserOption, Status,
 };
@@ -27,7 +27,7 @@ unsafe fn main_0(_argc: libc::c_int, _argv: *mut *mut libc::c_char) -> libc::c_i
     let mut filedata: [libc::c_uchar; 65536] = [0; 65536];
     let mut quiet: libc::c_int = 0 as libc::c_int;
     let mut retval: libc::c_int;
-    let hand: yajl_handle = Parser::alloc(
+    let hand = Parser::alloc(
         std::ptr::null::<yajl_callbacks>(),
         std::ptr::null_mut::<yajl_alloc_funcs>(),
         std::ptr::null_mut::<libc::c_void>(),
