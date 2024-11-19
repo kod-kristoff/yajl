@@ -20,7 +20,7 @@ pub const yajl_tok_colon: yajl_tok = 1;
 pub const yajl_tok_bool: yajl_tok = 0;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct yajl_lexer_t {
+pub struct Lexer {
     pub lineOff: usize,
     pub charOff: usize,
     pub error: yajl_lex_error,
@@ -43,7 +43,7 @@ pub const yajl_lex_string_invalid_json_char: yajl_lex_error = 3;
 pub const yajl_lex_string_invalid_escaped_char: yajl_lex_error = 2;
 pub const yajl_lex_string_invalid_utf8: yajl_lex_error = 1;
 pub const yajl_lex_e_ok: yajl_lex_error = 0;
-pub type yajl_lexer = *mut yajl_lexer_t;
+pub type yajl_lexer = *mut Lexer;
 
 pub unsafe fn yajl_lex_alloc(
     mut alloc: *mut yajl_alloc_funcs,
@@ -52,7 +52,7 @@ pub unsafe fn yajl_lex_alloc(
 ) -> yajl_lexer {
     let mut lxr: yajl_lexer = ((*alloc).malloc).expect("non-null function pointer")(
         (*alloc).ctx,
-        ::core::mem::size_of::<yajl_lexer_t>(),
+        ::core::mem::size_of::<Lexer>(),
     ) as yajl_lexer;
     std::ptr::write_bytes(lxr, 0, 1);
 

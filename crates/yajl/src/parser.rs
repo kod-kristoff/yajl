@@ -5,7 +5,7 @@ use parser_impl::{ByteStack, ParseState};
 
 use crate::{
     buffer::Buffer,
-    lexer::{yajl_lex_alloc, yajl_lex_free, yajl_lexer_t},
+    lexer::{yajl_lex_alloc, yajl_lex_free, Lexer},
     yajl_alloc::{yajl_alloc_funcs, yajl_set_default_alloc_funcs},
     Status,
 };
@@ -129,7 +129,7 @@ pub struct __va_list_tag {
     pub reg_save_area: *mut libc::c_void,
 }
 
-pub type yajl_lexer = *mut yajl_lexer_t;
+pub type yajl_lexer = *mut Lexer;
 
 pub unsafe extern "C" fn yajl_status_to_string(stat: Status) -> *const libc::c_char {
     let mut statStr: *const libc::c_char = b"unknown\0" as *const u8 as *const libc::c_char;
