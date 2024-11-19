@@ -1160,7 +1160,7 @@ impl Lexer {
     }
 }
 impl LexError {
-    pub fn to_c_str_ptr(&self) -> *const c_char {
+    pub fn as_c_str_ptr(&self) -> *const c_char {
         match *self {
             Self::Ok => b"ok, no error\0" as *const u8 as *const c_char,
             Self::StringInvalidUtf8 => {
