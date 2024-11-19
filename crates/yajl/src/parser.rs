@@ -5,7 +5,7 @@ use parser_impl::{ByteStack, ParseState};
 
 use crate::{
     buffer::Buffer,
-    lexer::{yajl_lex_alloc, yajl_lex_free, Lexer},
+    lexer::Lexer,
     yajl_alloc::{yajl_alloc_funcs, yajl_set_default_alloc_funcs},
     Status,
 };
@@ -261,7 +261,7 @@ impl Parser {
         (*handle).stateStack.free();
         Buffer::free((*handle).decodeBuf);
         if !((*handle).lexer).is_null() {
-            yajl_lex_free((*handle).lexer);
+            Lexer::free((*handle).lexer);
             (*handle).lexer = ptr::null_mut();
         }
         ((*handle).alloc.free).expect("non-null function pointer")(
@@ -290,32 +290,25 @@ impl Parser {
         }
         true
     }
-    pub unsafe fn parse(
-        &mut self,
-        mut jsonText: *const libc::c_uchar,
-        mut jsonTextLen: usize,
-    ) -> Status {
-        if (self.lexer).is_null() {
-            self.lexer = yajl_lex_alloc(
-                &mut self.alloc,
-                self.flags & ParserOption::AllowComments as u32,
-                (self.flags & ParserOption::DontValidateStrings as u32 == 0) as libc::c_int
-                    as libc::c_uint,
-            );
-        }
-        self.do_parse(jsonText, jsonTextLen)
+    pub fn parse(&mut self, mut jsonText: *const libc::c_uchar, mut jsonTextLen: usize) -> Status {
+        self.ensure_lexer();
+        unsafe { self.do_parse(jsonText, jsonTextLen) }
     }
-
-    pub unsafe fn complete_parse(&mut self) -> Status {
-        if (self.lexer).is_null() {
-            self.lexer = yajl_lex_alloc(
-                &mut self.alloc,
-                self.flags & ParserOption::AllowComments as u32,
-                (self.flags & ParserOption::DontValidateStrings as u32 == 0) as libc::c_int
-                    as libc::c_uint,
-            );
+    fn ensure_lexer(&mut self) {
+        if self.lexer.is_null() {
+            unsafe {
+                self.lexer = Lexer::alloc(
+                    &mut self.alloc,
+                    self.flags & ParserOption::AllowComments as u32,
+                    (self.flags & ParserOption::DontValidateStrings as u32 == 0) as libc::c_int
+                        as libc::c_uint,
+                );
+            }
         }
-        self.do_finish()
+    }
+    pub fn complete_parse(&mut self) -> Status {
+        self.ensure_lexer();
+        unsafe { self.do_finish() }
     }
 
     pub unsafe fn get_error(
