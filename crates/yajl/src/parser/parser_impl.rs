@@ -198,11 +198,11 @@ impl Parser {
         match self.stateStack.top() {
             ParseState::ParseError => {
                 errorType = b"parse\0" as *const u8 as *const libc::c_char;
-                errorText = self.parseError.unwrap().to_c_str_ptr();
+                errorText = self.parseError.unwrap().as_c_str_ptr();
             }
             ParseState::LexicalError => {
                 errorType = b"lexical\0" as *const u8 as *const libc::c_char;
-                errorText = (*self.lexer).get_error().to_c_str_ptr();
+                errorText = (*self.lexer).get_error().as_c_str_ptr();
             }
             _ => {
                 errorType = b"unknown\0" as *const u8 as *const libc::c_char;
@@ -307,7 +307,7 @@ impl Parser {
 }
 impl Parser {
     pub unsafe fn do_finish(&mut self) -> Status {
-        let stat = self.do_parse(b" \0" as *const u8 as *const libc::c_uchar, 1 as usize);
+        let stat = self.do_parse(b" \0" as *const u8, 1);
         if stat != Status::Ok {
             return stat;
         }

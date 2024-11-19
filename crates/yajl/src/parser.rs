@@ -45,7 +45,7 @@ pub enum ParseError {
 }
 
 impl ParseError {
-    fn to_c_str_ptr(&self) -> *const c_char {
+    fn as_c_str_ptr(&self) -> *const c_char {
         match self {
             Self::ClientCancelled => {
                 b"client cancelled parse via callback return value\0" as *const u8 as *const c_char
@@ -292,9 +292,13 @@ impl Parser {
         }
         true
     }
-    pub fn parse(&mut self, mut jsonText: *const libc::c_uchar, mut jsonTextLen: usize) -> Status {
+    pub unsafe fn parse(
+        &mut self,
+        mut jsonText: *const libc::c_uchar,
+        mut jsonTextLen: usize,
+    ) -> Status {
         self.ensure_lexer();
-        unsafe { self.do_parse(jsonText, jsonTextLen) }
+        self.do_parse(jsonText, jsonTextLen)
     }
     fn ensure_lexer(&mut self) {
         if self.lexer.is_null() {
