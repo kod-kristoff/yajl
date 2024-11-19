@@ -1,15 +1,17 @@
 use ::libc;
 use core::{ffi::c_char, ptr};
 pub(crate) use parser_impl::yajl_parse_integer;
-use parser_impl::{ByteStack, ParseState};
+
+use self::lexer::Lexer;
+use self::parser_impl::{ByteStack, ParseState};
 
 use crate::{
     buffer::Buffer,
-    lexer::Lexer,
     yajl_alloc::{yajl_alloc_funcs, yajl_set_default_alloc_funcs},
     Status,
 };
 
+mod lexer;
 mod parser_impl;
 
 #[derive(Clone, Debug)]

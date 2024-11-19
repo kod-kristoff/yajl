@@ -4,11 +4,7 @@ use core::ptr;
 
 use ::libc;
 
-use crate::lexer::Token;
-use crate::{
-    lexer::Lexer, yajl_alloc::yajl_alloc_funcs, yajl_encode::yajl_string_decode, ParserOption,
-    Status,
-};
+use crate::{yajl_alloc::yajl_alloc_funcs, yajl_encode::yajl_string_decode, ParserOption, Status};
 
 #[cfg(any(
     target_os = "android",
@@ -27,7 +23,7 @@ use crate::{
 #[allow(dead_code)]
 use crate::util_libc::{get_last_error, set_last_error};
 
-use super::{ParseError, Parser};
+use super::{lexer::Token, Lexer, ParseError, Parser};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
