@@ -5,8 +5,8 @@ use parser_impl::{ByteStack, ParseState};
 
 use crate::{
     buffer::Buffer,
+    lexer::{yajl_lex_alloc, yajl_lex_free, yajl_lexer_t},
     yajl_alloc::{yajl_alloc_funcs, yajl_set_default_alloc_funcs},
-    yajl_lex::{yajl_lex_alloc, yajl_lex_free, yajl_lexer_t},
     Status,
 };
 

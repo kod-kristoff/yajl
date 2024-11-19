@@ -6,9 +6,9 @@ use core::ptr;
 use ::libc;
 
 use crate::{
+    lexer::yajl_lexer_t,
     parser::{yajl_callbacks, yajl_parse_integer, Parser},
     yajl_alloc::yajl_alloc_funcs,
-    yajl_lex::yajl_lexer_t,
     ParserOption, Status,
 };
 

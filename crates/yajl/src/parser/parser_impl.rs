@@ -5,9 +5,9 @@ use core::ptr;
 use ::libc;
 
 use crate::{
+    lexer::{yajl_lex_error_to_string, yajl_lex_get_error, yajl_lex_lex, yajl_lexer_t},
     yajl_alloc::yajl_alloc_funcs,
     yajl_encode::yajl_string_decode,
-    yajl_lex::{yajl_lex_error_to_string, yajl_lex_get_error, yajl_lex_lex, yajl_lexer_t},
     ParserOption, Status,
 };
 
