@@ -6,6 +6,9 @@ use crate::{yajl_alloc::yajl_alloc_funcs, yajl_encode::yajl_string_decode, Parse
 
 use super::{lexer::Token, Lexer, ParseError, Parser};
 
+#[cfg(test)]
+mod tests;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum ParseState {
@@ -113,14 +116,14 @@ pub const yajl_lex_e_ok: yajl_lex_error = 0;
 
 const MAX_VALUE_TO_MULTIPLY: i64 = i64::MAX / 10 + i64::MAX % 10;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ParseIntegerError {
     /// Too large integer detected
     Overflow,
     /// Too small integer detected
     Underflow,
-    // /// Non-numerical char detected
-    // NonNumerical(u8),
+    /// Non-numerical char detected
+    NonNumerical(u8),
 }
 pub unsafe fn parse_integer(
     mut number: *const u8,
@@ -153,13 +156,7 @@ pub unsafe fn parse_integer(
             };
         }
         if *pos < b'0' || *pos > b'9' {
-            // TODO we should return Err(ParseIntegerError::NonNumerical(*pos));
-            // but then also return sign?
-            return if sign == 1 {
-                Err(ParseIntegerError::Overflow)
-            } else {
-                Err(ParseIntegerError::Underflow)
-            };
+            return Err(ParseIntegerError::NonNumerical(*pos));
         }
         let fresh0 = pos;
         pos = pos.offset(1);

@@ -380,8 +380,8 @@ unsafe extern "C" fn handle_number(
                 (*v).u.number.flags |= 0x1;
                 integer
             }
-            Err(ParseIntegerError::Overflow) => i64::MAX,
             Err(ParseIntegerError::Underflow) => i64::MIN,
+            _ => i64::MAX,
         };
     if let Some(s) = CStr::from_ptr((*v).u.number.r).to_str().ok() {
         if let Some((d, d_len)) = strtod::strtod(s) {
