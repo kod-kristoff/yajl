@@ -1,27 +1,8 @@
 #![allow(clippy::missing_safety_doc)]
-use core::ffi::{c_char, c_void};
+use core::ffi::{c_char, c_void, CStr};
 use core::ptr;
 
-use ::libc;
-
 use crate::{yajl_alloc::yajl_alloc_funcs, yajl_encode::yajl_string_decode, ParserOption, Status};
-
-#[cfg(any(
-    target_os = "android",
-    target_os = "dragonfly",
-    target_os = "emscripten",
-    target_os = "freebsd",
-    target_os = "haiku",
-    target_os = "illumos",
-    target_os = "linux",
-    target_os = "macos",
-    target_os = "netbsd",
-    target_os = "openbsd",
-    target_os = "redox",
-    target_os = "solaris"
-))]
-#[allow(dead_code)]
-use crate::util_libc::{get_last_error, set_last_error};
 
 use super::{lexer::Token, Lexer, ParseError, Parser};
 
@@ -138,8 +119,8 @@ pub enum ParseIntegerError {
     Overflow,
     /// Too small integer detected
     Underflow,
-    /// Non-numerical char detected
-    NonNumerical(u8),
+    // /// Non-numerical char detected
+    // NonNumerical(u8),
 }
 pub unsafe fn parse_integer(
     mut number: *const u8,
@@ -172,7 +153,13 @@ pub unsafe fn parse_integer(
             };
         }
         if *pos < b'0' || *pos > b'9' {
-            return Err(ParseIntegerError::NonNumerical(*pos));
+            // TODO we should return Err(ParseIntegerError::NonNumerical(*pos));
+            // but then also return sign?
+            return if sign == 1 {
+                Err(ParseIntegerError::Overflow)
+            } else {
+                Err(ParseIntegerError::Underflow)
+            };
         }
         let fresh0 = pos;
         pos = pos.offset(1);
@@ -516,16 +503,23 @@ impl Parser {
                                         return Status::ClientCanceled;
                                     }
                                 } else if ((*self.callbacks).yajl_double).is_some() {
-                                    let mut d: libc::c_double = 0.0f64;
+                                    let mut d: f64 = 0.0f64;
                                     (*self.decodeBuf).clear();
-                                    (*self.decodeBuf).append(buf as *const libc::c_void, bufLen);
+                                    (*self.decodeBuf).append(buf as *const c_void, bufLen);
                                     buf = (*self.decodeBuf).data();
-                                    set_last_error(0);
-                                    d = libc::strtod(
-                                        buf as *mut libc::c_char,
-                                        std::ptr::null_mut::<*mut libc::c_char>(),
-                                    );
-                                    if d.is_infinite() && get_last_error() == 34 as libc::c_int {
+                                    let (d, d_is_error) = if let Some(s) =
+                                        CStr::from_ptr(buf as *const i8).to_str().ok()
+                                    {
+                                        if let Some((d, d_len)) = strtod::strtod(s) {
+                                            (d, false)
+                                        } else {
+                                            (0f64, true)
+                                        }
+                                    } else {
+                                        (0f64, true)
+                                    };
+
+                                    if d_is_error {
                                         *self.stateStack.top_mut() = ParseState::ParseError;
                                         self.parseError = Some(ParseError::FloatingPointOverflow);
                                         if *offset >= bufLen {

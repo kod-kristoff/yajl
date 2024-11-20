@@ -403,6 +403,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "strtod"
+version = "0.0.1"
+source = "git+https://github.com/kod-kristoff/strtod#d6ae4018a72c5bd36c95fda3b00e8360aba38b02"
+
+[[package]]
 name = "syn"
 version = "2.0.85"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -526,6 +531,7 @@ dependencies = [
  "insta",
  "libc",
  "rstest",
+ "strtod",
 ]
 
 [[package]]
