@@ -12,6 +12,7 @@ nightly = []
 
 [dependencies]
 libc = { workspace = true }
+strtod = { git = "https://github.com/kod-kristoff/strtod", version = "0.0.1" }
 
 [lib]
 doctest = false

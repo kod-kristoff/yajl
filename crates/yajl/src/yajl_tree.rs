@@ -1,12 +1,13 @@
 #![allow(clippy::missing_safety_doc)]
 #![allow(unused_unsafe)]
 #![allow(clippy::nonminimal_bool)]
+use core::ffi::CStr;
 use core::ptr;
 
 use ::libc;
 
 use crate::{
-    parser::{parse_integer, yajl_callbacks, Parser},
+    parser::{parse_integer, yajl_callbacks, ParseIntegerError, Parser},
     yajl_alloc::yajl_alloc_funcs,
     ParserOption, Status,
 };
@@ -83,23 +84,6 @@ pub struct yajl_bytestack_t {
     pub used: usize,
     pub yaf: *mut yajl_alloc_funcs,
 }
-
-#[cfg(any(
-    target_os = "android",
-    target_os = "dragonfly",
-    target_os = "emscripten",
-    target_os = "freebsd",
-    target_os = "haiku",
-    target_os = "illumos",
-    target_os = "linux",
-    target_os = "macos",
-    target_os = "netbsd",
-    target_os = "openbsd",
-    target_os = "redox",
-    target_os = "solaris"
-))]
-#[allow(dead_code)]
-use crate::util_libc::{get_last_error, set_last_error};
 
 unsafe extern "C" fn value_alloc(mut type_0: yajl_type) -> yajl_val {
     let mut v: yajl_val = ptr::null_mut::<yajl_val_s>();
@@ -390,26 +374,32 @@ unsafe extern "C" fn handle_number(
     );
     *((*v).u.number.r).add(string_length) = 0 as libc::c_int as libc::c_char;
     (*v).u.number.flags = 0 as libc::c_int as libc::c_uint;
-    if let Ok(integer) = parse_integer((*v).u.number.r as *const u8, libc::strlen((*v).u.number.r))
-    {
-        (*v).u.number.i = integer;
-        (*v).u.number.flags |= 0x1 as libc::c_int as libc::c_uint;
+    (*v).u.number.i =
+        match parse_integer((*v).u.number.r as *const u8, libc::strlen((*v).u.number.r)) {
+            Ok(integer) => {
+                (*v).u.number.flags |= 0x1;
+                integer
+            }
+            Err(ParseIntegerError::Overflow) => i64::MAX,
+            Err(ParseIntegerError::Underflow) => i64::MIN,
+        };
+    if let Some(s) = CStr::from_ptr((*v).u.number.r).to_str().ok() {
+        if let Some((d, d_len)) = strtod::strtod(s) {
+            (*v).u.number.d = d;
+            if d_len == string_length {
+                (*v).u.number.flags |= 0x2;
+            }
+        } else {
+            (*v).u.number.d = 0f64;
+        };
     } else {
-        // TODO should this be handled?
-    }
-    endptr = ptr::null_mut::<libc::c_char>();
-    set_last_error(0);
-    (*v).u.number.d = libc::strtod((*v).u.number.r, &mut endptr);
-    if get_last_error() == 0 as libc::c_int
-        && !endptr.is_null()
-        && *endptr as libc::c_int == 0 as libc::c_int
-    {
-        (*v).u.number.flags |= 0x2 as libc::c_int as libc::c_uint;
-    }
-    if context_add_value(ctx as *mut context_t, v) == 0 as libc::c_int {
-        1 as libc::c_int
+        (*v).u.number.d = 0f64;
+    };
+
+    if context_add_value(ctx as *mut context_t, v) == 0 {
+        1
     } else {
-        0 as libc::c_int
+        0
     }
 }
 unsafe extern "C" fn handle_start_map(mut ctx: *mut libc::c_void) -> libc::c_int {
