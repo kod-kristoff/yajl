@@ -1,6 +1,6 @@
 use ::libc;
 use core::{ffi::c_char, ptr};
-pub(crate) use parser_impl::yajl_parse_integer;
+pub(crate) use parser_impl::parse_integer;
 
 use self::lexer::Lexer;
 use self::parser_impl::{ByteStack, ParseState};

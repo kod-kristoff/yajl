@@ -6,7 +6,7 @@ use core::ptr;
 use ::libc;
 
 use crate::{
-    parser::{yajl_callbacks, yajl_parse_integer, Parser},
+    parser::{parse_integer, yajl_callbacks, Parser},
     yajl_alloc::yajl_alloc_funcs,
     ParserOption, Status,
 };
@@ -390,13 +390,12 @@ unsafe extern "C" fn handle_number(
     );
     *((*v).u.number.r).add(string_length) = 0 as libc::c_int as libc::c_char;
     (*v).u.number.flags = 0 as libc::c_int as libc::c_uint;
-    set_last_error(0);
-    (*v).u.number.i = yajl_parse_integer(
-        (*v).u.number.r as *const libc::c_uchar,
-        libc::strlen((*v).u.number.r) as libc::c_uint,
-    );
-    if get_last_error() == 0 as libc::c_int {
+    if let Ok(integer) = parse_integer((*v).u.number.r as *const u8, libc::strlen((*v).u.number.r))
+    {
+        (*v).u.number.i = integer;
         (*v).u.number.flags |= 0x1 as libc::c_int as libc::c_uint;
+    } else {
+        // TODO should this be handled?
     }
     endptr = ptr::null_mut::<libc::c_char>();
     set_last_error(0);
