@@ -1,7 +1,7 @@
 use std::io::{self, Read};
 
 use ::libc;
-use yajl::yajl_tree::{yajl_t_string, yajl_tree_free, yajl_tree_get, yajl_tree_parse, yajl_val};
+use yajl::tree::{yajl_t_string, yajl_tree_free, yajl_tree_get, yajl_tree_parse, yajl_val};
 
 unsafe fn main_0() -> libc::c_int {
     let mut file_data: [libc::c_uchar; 65536] = [0; 65536];
