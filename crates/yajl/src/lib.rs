@@ -14,10 +14,10 @@ extern crate libc;
 pub(crate) mod buffer;
 pub mod parser;
 pub mod status;
+pub mod tree;
 pub mod yajl_alloc;
 pub mod yajl_encode;
 pub mod yajl_gen;
-pub mod yajl_tree;
 pub mod yajl_version;
 
 pub use parser::{Parser, ParserOption};
