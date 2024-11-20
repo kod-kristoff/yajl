@@ -130,56 +130,55 @@ pub const yajl_lex_string_invalid_escaped_char: yajl_lex_error = 2;
 pub const yajl_lex_string_invalid_utf8: yajl_lex_error = 1;
 pub const yajl_lex_e_ok: yajl_lex_error = 0;
 
-pub unsafe extern "C" fn yajl_parse_integer(
-    mut number: *const libc::c_uchar,
-    mut length: libc::c_uint,
-) -> libc::c_longlong {
-    let mut ret: libc::c_longlong = 0 as libc::c_int as libc::c_longlong;
-    let mut sign: libc::c_long = 1 as libc::c_int as libc::c_long;
-    let mut pos: *const libc::c_uchar = number;
-    if *pos as libc::c_int == '-' as i32 {
+const MAX_VALUE_TO_MULTIPLY: i64 = i64::MAX / 10 + i64::MAX % 10;
+
+#[derive(Debug, Clone)]
+pub enum ParseIntegerError {
+    /// Too large integer detected
+    Overflow,
+    /// Too small integer detected
+    Underflow,
+    /// Non-numerical char detected
+    NonNumerical(u8),
+}
+pub unsafe fn parse_integer(
+    mut number: *const u8,
+    mut length: usize,
+) -> Result<i64, ParseIntegerError> {
+    let mut ret: i64 = 0;
+    let mut sign: i8 = 1;
+    let mut pos: *const u8 = number;
+    if *pos as i32 == '-' as i32 {
         pos = pos.offset(1);
-        sign = -(1 as libc::c_int) as libc::c_long;
+        sign = -1;
     }
-    if *pos as libc::c_int == '+' as i32 {
+    if *pos as i32 == '+' as i32 {
         pos = pos.offset(1);
     }
     while pos < number.offset(length as isize) {
-        if ret
-            > 9223372036854775807 as libc::c_longlong / 10 as libc::c_int as libc::c_longlong
-                + 9223372036854775807 as libc::c_longlong % 10 as libc::c_int as libc::c_longlong
-        {
-            set_last_error(34);
-            return if sign == 1 as libc::c_int as libc::c_long {
-                9223372036854775807 as libc::c_longlong
+        if ret > MAX_VALUE_TO_MULTIPLY {
+            return if sign == 1 {
+                Err(ParseIntegerError::Overflow)
             } else {
-                -(9223372036854775807 as libc::c_longlong) - 1 as libc::c_longlong
+                Err(ParseIntegerError::Underflow)
             };
         }
-        ret *= 10 as libc::c_int as libc::c_longlong;
-        if 9223372036854775807 as libc::c_longlong - ret
-            < (*pos as libc::c_int - '0' as i32) as libc::c_longlong
-        {
-            set_last_error(34);
-            return if sign == 1 as libc::c_int as libc::c_long {
-                9223372036854775807 as libc::c_longlong
+        ret *= 10;
+        if i64::MAX - ret < (*pos as i32 - '0' as i32) as i64 {
+            return if sign == 1 {
+                Err(ParseIntegerError::Overflow)
             } else {
-                -(9223372036854775807 as libc::c_longlong) - 1 as libc::c_longlong
+                Err(ParseIntegerError::Underflow)
             };
         }
-        if (*pos as libc::c_int) < '0' as i32 || *pos as libc::c_int > '9' as i32 {
-            set_last_error(34);
-            return if sign == 1 as libc::c_int as libc::c_long {
-                9223372036854775807 as libc::c_longlong
-            } else {
-                -(9223372036854775807 as libc::c_longlong) - 1 as libc::c_longlong
-            };
+        if *pos < b'0' || *pos > b'9' {
+            return Err(ParseIntegerError::NonNumerical(*pos));
         }
         let fresh0 = pos;
         pos = pos.offset(1);
         ret += (*fresh0 as libc::c_int - '0' as i32) as libc::c_longlong;
     }
-    sign as libc::c_longlong * ret
+    Ok(sign as i64 * ret)
 }
 impl Parser {
     pub unsafe fn render_error_string(
@@ -477,25 +476,17 @@ impl Parser {
                                         return Status::ClientCanceled;
                                     }
                                 } else if ((*self.callbacks).yajl_integer).is_some() {
-                                    let mut i: libc::c_longlong =
-                                        0 as libc::c_int as libc::c_longlong;
-                                    set_last_error(0);
-                                    i = yajl_parse_integer(buf, bufLen as libc::c_uint);
-                                    if (i
-                                        == -(9223372036854775807 as libc::c_longlong)
-                                            - 1 as libc::c_longlong
-                                        || i == 9223372036854775807 as libc::c_longlong)
-                                        && get_last_error() == 34 as libc::c_int
-                                    {
+                                    let Ok(i) = parse_integer(buf, bufLen) else {
                                         *self.stateStack.top_mut() = ParseState::ParseError;
                                         self.parseError = Some(ParseError::IntegerOverflow);
                                         if *offset >= bufLen {
                                             *offset = { *offset }.wrapping_sub(bufLen);
                                         } else {
-                                            *offset = 0 as libc::c_int as usize;
+                                            *offset = 0;
                                         }
                                         continue;
-                                    } else if ((*self.callbacks).yajl_integer)
+                                    };
+                                    if ((*self.callbacks).yajl_integer)
                                         .expect("non-null function pointer")(
                                         self.ctx, i
                                     ) == 0
