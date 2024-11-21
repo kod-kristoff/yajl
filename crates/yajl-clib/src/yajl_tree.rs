@@ -2,9 +2,14 @@
 #![allow(unused_unsafe)]
 #![allow(clippy::nonminimal_bool)]
 
+use core::ffi::c_uint;
+use core::ptr;
+
 use ::libc;
 
-pub use yajl::tree::{yajl_type, yajl_val};
+pub use yajl::tree::{yajl_val, ValueType};
+
+pub type yajl_type = c_uint;
 
 #[no_mangle]
 pub unsafe extern "C" fn yajl_tree_parse(
@@ -21,7 +26,11 @@ pub unsafe extern "C" fn yajl_tree_get(
     mut path: *mut *const libc::c_char,
     mut type_0: yajl_type,
 ) -> yajl_val {
-    yajl::tree::yajl_tree_get(n, path, type_0)
+    if let Some(r#type) = ValueType::from_repr(type_0) {
+        yajl::tree::yajl_tree_get(n, path, r#type)
+    } else {
+        ptr::null_mut()
+    }
 }
 
 #[no_mangle]
