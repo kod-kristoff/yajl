@@ -1,7 +1,7 @@
 use std::io::{self, Read};
 
 use ::libc;
-use yajl::tree::{yajl_tree_free, yajl_tree_get, yajl_tree_parse, yajl_val, ValueType};
+use yajl::tree::{yajl_tree_free, yajl_tree_get, yajl_tree_parse, Value, ValueType};
 
 unsafe fn main_0() -> libc::c_int {
     let mut file_data: [libc::c_uchar; 65536] = [0; 65536];
@@ -45,7 +45,7 @@ unsafe fn main_0() -> libc::c_int {
         b"timeFormat\0" as *const u8 as *const libc::c_char,
         std::ptr::null::<libc::c_char>(),
     ];
-    let v: yajl_val = yajl_tree_get(node, path.as_mut_ptr(), ValueType::String);
+    let v: *mut Value = yajl_tree_get(node, path.as_mut_ptr(), ValueType::String);
     if !v.is_null() {
         libc::printf(
             b"%s/%s: %s\n\0" as *const u8 as *const libc::c_char,
