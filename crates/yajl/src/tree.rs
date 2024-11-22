@@ -111,10 +111,10 @@ impl fmt::Debug for Number {
         }
     }
 }
-pub type context_t = context_s;
+
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct context_s {
+pub struct Context {
     pub stack: *mut stack_elem_t,
     pub root: *mut Value,
     pub errbuf: *mut c_char,
@@ -151,6 +151,15 @@ impl fmt::Debug for Value {
             })),
         }
     }
+}
+
+#[derive(Copy, Clone, Debug)]
+#[repr(i32)]
+pub enum ContextError {
+    OutOfMemory = 12,
+    ObjectKeyIsNotAString,
+    CantAddValueToNonCompsiteType = 22,
+    BottomOfStackReachedPrematurely,
 }
 
 impl Value {
@@ -201,172 +210,176 @@ impl Value {
     }
 }
 
-unsafe fn context_push(mut ctx: *mut context_t, mut v: *mut Value) -> libc::c_int {
-    eprintln!("Context::push: v={:?}", *v);
-    if v.is_null() {
-        eprintln!("context_push: v is NULL");
-    }
-    let mut stack: *mut stack_elem_t = ptr::null_mut::<stack_elem_t>();
-    stack = libc::malloc(::core::mem::size_of::<stack_elem_t>()) as *mut stack_elem_t;
-    if stack.is_null() {
-        if !((*ctx).errbuf).is_null() {
-            libc::snprintf(
-                (*ctx).errbuf,
-                (*ctx).errbuf_size,
-                b"Out of memory\0" as *const u8 as *const c_char,
-            );
-        }
-        return 12 as libc::c_int;
-    }
-    ptr::write_bytes(stack, 0, 1);
-
-    (*stack).value = v;
-    (*stack).next = (*ctx).stack;
-    (*ctx).stack = stack;
-    0 as libc::c_int
-}
-unsafe fn context_pop(mut ctx: *mut context_t) -> *mut Value {
-    let mut stack: *mut stack_elem_t = ptr::null_mut::<stack_elem_t>();
-    let mut v: *mut Value = ptr::null_mut::<Value>();
-    if ((*ctx).stack).is_null() {
-        if !((*ctx).errbuf).is_null() {
-            libc::snprintf(
-                (*ctx).errbuf,
-                (*ctx).errbuf_size,
-                b"context_pop: Bottom of stack reached prematurely\0" as *const u8 as *const c_char,
-            );
-        }
-        eprintln!("Context::pop: v=NULL");
-        return ptr::null_mut();
-    }
-    stack = (*ctx).stack;
-    (*ctx).stack = (*stack).next;
-    v = (*stack).value;
-    libc::free(stack as *mut c_void);
-    eprintln!("Context::pop: v={:?}", *v);
-    v
-}
-unsafe fn object_add_keyval(
-    mut ctx: *mut context_t,
-    mut obj: *mut Value,
-    mut key: *mut c_char,
-    mut value: *mut Value,
-) -> libc::c_int {
-    let mut tmpk: *mut *const c_char = ptr::null_mut::<*const c_char>();
-    let mut tmpv: *mut *mut Value = ptr::null_mut::<*mut Value>();
-    tmpk = libc::realloc(
-        (*obj).u.object.keys as *mut c_void,
-        (::core::mem::size_of::<*const c_char>())
-            .wrapping_mul(((*obj).u.object.len).wrapping_add(1)),
-    ) as *mut *const c_char;
-    if tmpk.is_null() {
-        if !((*ctx).errbuf).is_null() {
-            libc::snprintf(
-                (*ctx).errbuf,
-                (*ctx).errbuf_size,
-                b"Out of memory\0" as *const u8 as *const c_char,
-            );
-        }
-        return 12 as libc::c_int;
-    }
-    (*obj).u.object.keys = tmpk;
-    tmpv = libc::realloc(
-        (*obj).u.object.values as *mut c_void,
-        (::core::mem::size_of::<*mut Value>()).wrapping_mul(((*obj).u.object.len).wrapping_add(1)),
-    ) as *mut *mut Value;
-    if tmpv.is_null() {
-        if !((*ctx).errbuf).is_null() {
-            libc::snprintf(
-                (*ctx).errbuf,
-                (*ctx).errbuf_size,
-                b"Out of memory\0" as *const u8 as *const c_char,
-            );
-        }
-        return 12 as libc::c_int;
-    }
-    (*obj).u.object.values = tmpv;
-    let fresh3 = &mut (*((*obj).u.object.keys).add((*obj).u.object.len));
-    *fresh3 = key;
-    let fresh4 = &mut (*((*obj).u.object.values).add((*obj).u.object.len));
-    *fresh4 = value;
-    (*obj).u.object.len = ((*obj).u.object.len).wrapping_add(1);
-    0 as libc::c_int
-}
-unsafe fn array_add_value(
-    mut ctx: *mut context_t,
-    mut array: *mut Value,
-    mut value: *mut Value,
-) -> libc::c_int {
-    let mut tmp: *mut *mut Value = ptr::null_mut::<*mut Value>();
-    tmp = libc::realloc(
-        (*array).u.array.values as *mut c_void,
-        (::core::mem::size_of::<*mut Value>()).wrapping_mul(((*array).u.array.len).wrapping_add(1)),
-    ) as *mut *mut Value;
-    if tmp.is_null() {
-        if !((*ctx).errbuf).is_null() {
-            libc::snprintf(
-                (*ctx).errbuf,
-                (*ctx).errbuf_size,
-                b"Out of memory\0" as *const u8 as *const c_char,
-            );
-        }
-        return 12 as libc::c_int;
-    }
-    (*array).u.array.values = tmp;
-    let fresh5 = &mut (*((*array).u.array.values).add((*array).u.array.len));
-    *fresh5 = value;
-    (*array).u.array.len = ((*array).u.array.len).wrapping_add(1);
-    0 as libc::c_int
-}
-unsafe fn context_add_value(mut ctx: *mut context_t, mut v: *mut Value) -> libc::c_int {
-    if ((*ctx).stack).is_null() {
-        (*ctx).root = v;
-        0 as libc::c_int
-    } else if !((*(*ctx).stack).value).is_null()
-        && (*(*(*ctx).stack).value).type_0 as libc::c_uint
-            == ValueType::Object as libc::c_int as libc::c_uint
-    {
-        if ((*(*ctx).stack).key).is_null() {
-            if !(!v.is_null()
-                && (*v).type_0 as libc::c_uint == ValueType::String as libc::c_int as libc::c_uint)
-            {
-                if !((*ctx).errbuf).is_null() {
-                    libc::snprintf(
-                        (*ctx).errbuf,
-                        (*ctx).errbuf_size,
-                        b"context_add_value: Object key is not a string (%#04x)\0" as *const u8
-                            as *const c_char,
-                        (*v).type_0 as libc::c_uint,
-                    );
-                }
-                return 22 as libc::c_int;
+impl Context {
+    unsafe fn push(mut ctx: *mut Context, mut v: *mut Value) -> Result<(), ContextError> {
+        eprintln!("Context::push: v={:?}", *v);
+        let mut stack: *mut stack_elem_t = ptr::null_mut::<stack_elem_t>();
+        stack = libc::malloc(::core::mem::size_of::<stack_elem_t>()) as *mut stack_elem_t;
+        if stack.is_null() {
+            if !((*ctx).errbuf).is_null() {
+                libc::snprintf(
+                    (*ctx).errbuf,
+                    (*ctx).errbuf_size,
+                    b"Out of memory\0" as *const u8 as *const c_char,
+                );
             }
-            (*(*ctx).stack).key = (*v).u.string;
-            (*v).u.string = ptr::null_mut::<c_char>();
-            libc::free(v as *mut c_void);
-            return 0 as libc::c_int;
-        } else {
-            let mut key: *mut c_char = ptr::null_mut::<c_char>();
-            key = (*(*ctx).stack).key;
-            (*(*ctx).stack).key = ptr::null_mut::<c_char>();
-            return object_add_keyval(ctx, (*(*ctx).stack).value, key, v);
+            return Err(ContextError::OutOfMemory);
         }
-    } else if !((*(*ctx).stack).value).is_null()
-        && (*(*(*ctx).stack).value).type_0 as libc::c_uint
-            == ValueType::Array as libc::c_int as libc::c_uint
-    {
-        return array_add_value(ctx, (*(*ctx).stack).value, v);
-    } else {
-        if !((*ctx).errbuf).is_null() {
-            libc::snprintf(
+        ptr::write_bytes(stack, 0, 1);
+
+        (*stack).value = v;
+        (*stack).next = (*ctx).stack;
+        (*ctx).stack = stack;
+        Ok(())
+    }
+    unsafe fn pop(mut ctx: *mut Context) -> Result<*mut Value, ContextError> {
+        let mut stack: *mut stack_elem_t = ptr::null_mut::<stack_elem_t>();
+        let mut v: *mut Value = ptr::null_mut::<Value>();
+        if ((*ctx).stack).is_null() {
+            if !((*ctx).errbuf).is_null() {
+                libc::snprintf(
+                    (*ctx).errbuf,
+                    (*ctx).errbuf_size,
+                    b"context_pop: Bottom of stack reached prematurely\0" as *const u8
+                        as *const c_char,
+                );
+            }
+            return dbg!(Err(ContextError::BottomOfStackReachedPrematurely));
+        }
+        stack = (*ctx).stack;
+        (*ctx).stack = (*stack).next;
+        v = (*stack).value;
+        libc::free(stack as *mut c_void);
+        eprintln!("Context::pop: v={:?}", *v);
+
+        Ok(v)
+    }
+
+    unsafe fn object_add_keyval(
+        mut ctx: *mut Context,
+        mut obj: *mut Value,
+        mut key: *mut c_char,
+        mut value: *mut Value,
+    ) -> Result<(), ContextError> {
+        let mut tmpk: *mut *const c_char = ptr::null_mut::<*const c_char>();
+        let mut tmpv: *mut *mut Value = ptr::null_mut::<*mut Value>();
+        tmpk = libc::realloc(
+            (*obj).u.object.keys as *mut c_void,
+            (::core::mem::size_of::<*const c_char>())
+                .wrapping_mul(((*obj).u.object.len).wrapping_add(1)),
+        ) as *mut *const c_char;
+        if tmpk.is_null() {
+            if !((*ctx).errbuf).is_null() {
+                libc::snprintf(
+                    (*ctx).errbuf,
+                    (*ctx).errbuf_size,
+                    b"Out of memory\0" as *const u8 as *const c_char,
+                );
+            }
+            return Err(ContextError::OutOfMemory);
+        }
+        (*obj).u.object.keys = tmpk;
+        tmpv = libc::realloc(
+            (*obj).u.object.values as *mut c_void,
+            (::core::mem::size_of::<*mut Value>())
+                .wrapping_mul(((*obj).u.object.len).wrapping_add(1)),
+        ) as *mut *mut Value;
+        if tmpv.is_null() {
+            if !((*ctx).errbuf).is_null() {
+                libc::snprintf(
+                    (*ctx).errbuf,
+                    (*ctx).errbuf_size,
+                    b"Out of memory\0" as *const u8 as *const c_char,
+                );
+            }
+            return Err(ContextError::OutOfMemory);
+        }
+        (*obj).u.object.values = tmpv;
+        let fresh3 = &mut (*((*obj).u.object.keys).add((*obj).u.object.len));
+        *fresh3 = key;
+        let fresh4 = &mut (*((*obj).u.object.values).add((*obj).u.object.len));
+        *fresh4 = value;
+        (*obj).u.object.len = ((*obj).u.object.len).wrapping_add(1);
+        Ok(())
+    }
+    unsafe fn array_add_value(
+        mut ctx: *mut Context,
+        mut array: *mut Value,
+        mut value: *mut Value,
+    ) -> Result<(), ContextError> {
+        let mut tmp: *mut *mut Value = ptr::null_mut::<*mut Value>();
+        tmp = libc::realloc(
+            (*array).u.array.values as *mut c_void,
+            (::core::mem::size_of::<*mut Value>())
+                .wrapping_mul(((*array).u.array.len).wrapping_add(1)),
+        ) as *mut *mut Value;
+        if tmp.is_null() {
+            if !((*ctx).errbuf).is_null() {
+                libc::snprintf(
+                    (*ctx).errbuf,
+                    (*ctx).errbuf_size,
+                    b"Out of memory\0" as *const u8 as *const c_char,
+                );
+            }
+            return Err(ContextError::OutOfMemory);
+        }
+        (*array).u.array.values = tmp;
+        let fresh5 = &mut (*((*array).u.array.values).add((*array).u.array.len));
+        *fresh5 = value;
+        (*array).u.array.len = ((*array).u.array.len).wrapping_add(1);
+        Ok(())
+    }
+    unsafe fn add_value(mut ctx: *mut Context, mut v: *mut Value) -> Result<(), ContextError> {
+        if ((*ctx).stack).is_null() {
+            (*ctx).root = v;
+            Ok(())
+        } else if !((*(*ctx).stack).value).is_null()
+            && (*(*(*ctx).stack).value).type_0 as libc::c_uint
+                == ValueType::Object as libc::c_int as libc::c_uint
+        {
+            if ((*(*ctx).stack).key).is_null() {
+                if !(!v.is_null()
+                    && (*v).type_0 as libc::c_uint
+                        == ValueType::String as libc::c_int as libc::c_uint)
+                {
+                    if !((*ctx).errbuf).is_null() {
+                        libc::snprintf(
+                            (*ctx).errbuf,
+                            (*ctx).errbuf_size,
+                            b"Context::add_value: Object key is not a string (%#04x)\0" as *const u8
+                                as *const c_char,
+                            (*v).type_0 as libc::c_uint,
+                        );
+                    }
+                    return Err(ContextError::ObjectKeyIsNotAString);
+                }
+                (*(*ctx).stack).key = (*v).u.string;
+                (*v).u.string = ptr::null_mut::<c_char>();
+                libc::free(v as *mut c_void);
+                return Ok(());
+            } else {
+                let mut key: *mut c_char = ptr::null_mut::<c_char>();
+                key = (*(*ctx).stack).key;
+                (*(*ctx).stack).key = ptr::null_mut::<c_char>();
+                return Context::object_add_keyval(ctx, (*(*ctx).stack).value, key, v);
+            }
+        } else if !((*(*ctx).stack).value).is_null()
+            && (*(*(*ctx).stack).value).type_0 as libc::c_uint
+                == ValueType::Array as libc::c_int as libc::c_uint
+        {
+            return Context::array_add_value(ctx, (*(*ctx).stack).value, v);
+        } else {
+            if !((*ctx).errbuf).is_null() {
+                libc::snprintf(
                 (*ctx).errbuf,
                 (*ctx).errbuf_size,
-                b"context_add_value: Cannot add value to a value of type %#04x (not a composite type)\0"
+                b"Context::add_value: Cannot add value to a value of type %#04x (not a composite type)\0"
                     as *const u8 as *const c_char,
                 (*(*(*ctx).stack).value).type_0 as libc::c_uint,
             );
+            }
+            return Err(ContextError::CantAddValueToNonCompsiteType);
         }
-        return 22 as libc::c_int;
     }
 }
 unsafe extern "C" fn handle_string(
@@ -377,10 +390,10 @@ unsafe extern "C" fn handle_string(
     let mut v: *mut Value = ptr::null_mut::<Value>();
     v = Value::alloc(ValueType::String);
     if v.is_null() {
-        if !((*(ctx as *mut context_t)).errbuf).is_null() {
+        if !((*(ctx as *mut Context)).errbuf).is_null() {
             libc::snprintf(
-                (*(ctx as *mut context_t)).errbuf,
-                (*(ctx as *mut context_t)).errbuf_size,
+                (*(ctx as *mut Context)).errbuf,
+                (*(ctx as *mut Context)).errbuf_size,
                 b"Out of memory\0" as *const u8 as *const c_char,
             );
         }
@@ -389,10 +402,10 @@ unsafe extern "C" fn handle_string(
     (*v).u.string = libc::malloc(string_length.wrapping_add(1)) as *mut c_char;
     if ((*v).u.string).is_null() {
         libc::free(v as *mut c_void);
-        if !((*(ctx as *mut context_t)).errbuf).is_null() {
+        if !((*(ctx as *mut Context)).errbuf).is_null() {
             libc::snprintf(
-                (*(ctx as *mut context_t)).errbuf,
-                (*(ctx as *mut context_t)).errbuf_size,
+                (*(ctx as *mut Context)).errbuf,
+                (*(ctx as *mut Context)).errbuf_size,
                 b"Out of memory\0" as *const u8 as *const c_char,
             );
         }
@@ -404,11 +417,11 @@ unsafe extern "C" fn handle_string(
         string_length,
     );
     *((*v).u.string).add(string_length) = 0 as libc::c_int as c_char;
+
     dbg!(CStr::from_ptr((*v).u.string));
-    if context_add_value(ctx as *mut context_t, v) == 0 as libc::c_int {
-        1 as libc::c_int
-    } else {
-        0 as libc::c_int
+    match Context::add_value(ctx as *mut Context, v) {
+        Ok(_) => 1,
+        Err(_) => 0,
     }
 }
 unsafe extern "C" fn handle_number(
@@ -420,10 +433,10 @@ unsafe extern "C" fn handle_number(
     let mut endptr: *mut c_char = ptr::null_mut::<c_char>();
     v = Value::alloc(ValueType::Number);
     if v.is_null() {
-        if !((*(ctx as *mut context_t)).errbuf).is_null() {
+        if !((*(ctx as *mut Context)).errbuf).is_null() {
             libc::snprintf(
-                (*(ctx as *mut context_t)).errbuf,
-                (*(ctx as *mut context_t)).errbuf_size,
+                (*(ctx as *mut Context)).errbuf,
+                (*(ctx as *mut Context)).errbuf_size,
                 b"Out of memory\0" as *const u8 as *const c_char,
             );
         }
@@ -432,10 +445,10 @@ unsafe extern "C" fn handle_number(
     (*v).u.number.r = libc::malloc(string_length.wrapping_add(1)) as *mut c_char;
     if ((*v).u.number.r).is_null() {
         libc::free(v as *mut c_void);
-        if !((*(ctx as *mut context_t)).errbuf).is_null() {
+        if !((*(ctx as *mut Context)).errbuf).is_null() {
             libc::snprintf(
-                (*(ctx as *mut context_t)).errbuf,
-                (*(ctx as *mut context_t)).errbuf_size,
+                (*(ctx as *mut Context)).errbuf,
+                (*(ctx as *mut Context)).errbuf_size,
                 b"Out of memory\0" as *const u8 as *const c_char,
             );
         }
@@ -470,20 +483,19 @@ unsafe extern "C" fn handle_number(
         (*v).u.number.d = 0f64;
     };
 
-    if context_add_value(ctx as *mut context_t, v) == 0 {
-        1
-    } else {
-        0
+    match Context::add_value(ctx as *mut Context, v) {
+        Ok(_) => 1,
+        Err(_) => 0,
     }
 }
 unsafe extern "C" fn handle_start_map(mut ctx: *mut c_void) -> libc::c_int {
     let mut v: *mut Value = ptr::null_mut::<Value>();
     v = Value::alloc(ValueType::Object);
     if v.is_null() {
-        if !((*(ctx as *mut context_t)).errbuf).is_null() {
+        if !((*(ctx as *mut Context)).errbuf).is_null() {
             libc::snprintf(
-                (*(ctx as *mut context_t)).errbuf,
-                (*(ctx as *mut context_t)).errbuf_size,
+                (*(ctx as *mut Context)).errbuf,
+                (*(ctx as *mut Context)).errbuf_size,
                 b"Out of memory\0" as *const u8 as *const c_char,
             );
         }
@@ -492,32 +504,29 @@ unsafe extern "C" fn handle_start_map(mut ctx: *mut c_void) -> libc::c_int {
     (*v).u.object.keys = ptr::null_mut::<*const c_char>();
     (*v).u.object.values = ptr::null_mut::<*mut Value>();
     (*v).u.object.len = 0 as libc::c_int as usize;
-    if context_push(ctx as *mut context_t, v) == 0 as libc::c_int {
-        1 as libc::c_int
-    } else {
-        0 as libc::c_int
+    match Context::push(ctx as *mut Context, v) {
+        Ok(_) => 1,
+        Err(_) => 0,
     }
 }
-unsafe extern "C" fn handle_end_map(mut ctx: *mut c_void) -> libc::c_int {
-    let mut v: *mut Value = ptr::null_mut::<Value>();
-    v = dbg!(context_pop(ctx as *mut context_t));
-    if v.is_null() {
-        return 0 as libc::c_int;
-    }
-    if context_add_value(ctx as *mut context_t, v) == 0 as libc::c_int {
-        1 as libc::c_int
-    } else {
-        0 as libc::c_int
+
+unsafe extern "C" fn handle_end_map(mut ctx: *mut c_void) -> i32 {
+    let Ok(v) = Context::pop(ctx as *mut Context) else {
+        return 0;
+    };
+    match Context::add_value(ctx as *mut Context, v) {
+        Ok(_) => 1,
+        Err(_) => 0,
     }
 }
 unsafe extern "C" fn handle_start_array(mut ctx: *mut c_void) -> libc::c_int {
     let mut v: *mut Value = ptr::null_mut::<Value>();
     v = Value::alloc(ValueType::Array);
     if v.is_null() {
-        if !((*(ctx as *mut context_t)).errbuf).is_null() {
+        if !((*(ctx as *mut Context)).errbuf).is_null() {
             libc::snprintf(
-                (*(ctx as *mut context_t)).errbuf,
-                (*(ctx as *mut context_t)).errbuf_size,
+                (*(ctx as *mut Context)).errbuf,
+                (*(ctx as *mut Context)).errbuf_size,
                 b"Out of memory\0" as *const u8 as *const c_char,
             );
         }
@@ -525,22 +534,18 @@ unsafe extern "C" fn handle_start_array(mut ctx: *mut c_void) -> libc::c_int {
     }
     (*v).u.array.values = ptr::null_mut::<*mut Value>();
     (*v).u.array.len = 0 as libc::c_int as usize;
-    if context_push(ctx as *mut context_t, v) == 0 as libc::c_int {
-        1 as libc::c_int
-    } else {
-        0 as libc::c_int
+    match Context::add_value(ctx as *mut Context, v) {
+        Ok(_) => 1,
+        Err(_) => 0,
     }
 }
-unsafe extern "C" fn handle_end_array(mut ctx: *mut c_void) -> libc::c_int {
-    let mut v: *mut Value = ptr::null_mut::<Value>();
-    v = context_pop(ctx as *mut context_t);
-    if v.is_null() {
-        return 0 as libc::c_int;
-    }
-    if context_add_value(ctx as *mut context_t, v) == 0 as libc::c_int {
-        1 as libc::c_int
-    } else {
-        0 as libc::c_int
+unsafe extern "C" fn handle_end_array(mut ctx: *mut c_void) -> i32 {
+    let Ok(v) = Context::pop(ctx as *mut Context) else {
+        return 0;
+    };
+    match Context::add_value(ctx as *mut Context, v) {
+        Ok(_) => 1,
+        Err(_) => 0,
     }
 }
 unsafe extern "C" fn handle_boolean(
@@ -554,38 +559,36 @@ unsafe extern "C" fn handle_boolean(
         ValueType::False
     });
     if v.is_null() {
-        if !((*(ctx as *mut context_t)).errbuf).is_null() {
+        if !((*(ctx as *mut Context)).errbuf).is_null() {
             libc::snprintf(
-                (*(ctx as *mut context_t)).errbuf,
-                (*(ctx as *mut context_t)).errbuf_size,
+                (*(ctx as *mut Context)).errbuf,
+                (*(ctx as *mut Context)).errbuf_size,
                 b"Out of memory\0" as *const u8 as *const c_char,
             );
         }
         return 0 as libc::c_int;
     }
-    if context_add_value(ctx as *mut context_t, v) == 0 as libc::c_int {
-        1 as libc::c_int
-    } else {
-        0 as libc::c_int
+    match Context::add_value(ctx as *mut Context, v) {
+        Ok(_) => 1,
+        Err(_) => 0,
     }
 }
 unsafe extern "C" fn handle_null(mut ctx: *mut c_void) -> libc::c_int {
     let mut v: *mut Value = ptr::null_mut::<Value>();
     v = Value::alloc(ValueType::Null);
     if v.is_null() {
-        if !((*(ctx as *mut context_t)).errbuf).is_null() {
+        if !((*(ctx as *mut Context)).errbuf).is_null() {
             libc::snprintf(
-                (*(ctx as *mut context_t)).errbuf,
-                (*(ctx as *mut context_t)).errbuf_size,
+                (*(ctx as *mut Context)).errbuf,
+                (*(ctx as *mut Context)).errbuf_size,
                 b"Out of memory\0" as *const u8 as *const c_char,
             );
         }
         return 0 as libc::c_int;
     }
-    if context_add_value(ctx as *mut context_t, v) == 0 as libc::c_int {
-        1 as libc::c_int
-    } else {
-        0 as libc::c_int
+    match Context::add_value(ctx as *mut Context, v) {
+        Ok(_) => 1,
+        Err(_) => 0,
     }
 }
 
@@ -641,8 +644,8 @@ pub unsafe fn yajl_tree_parse(
     let mut handle: yajl_handle = ptr::null_mut::<Parser>();
     let mut status = Status::Ok;
     let mut internal_err_str: *mut c_char = ptr::null_mut::<c_char>();
-    let mut ctx: context_t = {
-        context_s {
+    let mut ctx: Context = {
+        Context {
             stack: ptr::null_mut::<stack_elem_t>(),
             root: 0 as *mut Value,
             errbuf: ptr::null_mut::<c_char>(),
@@ -660,7 +663,7 @@ pub unsafe fn yajl_tree_parse(
     handle = Parser::alloc(
         ptr::addr_of!(callbacks),
         ptr::null_mut::<yajl_alloc_funcs>(),
-        &mut ctx as *mut context_t as *mut c_void,
+        &mut ctx as *mut Context as *mut c_void,
     );
     let parser = unsafe { &mut *handle };
     parser.config(ParserOption::AllowComments, true);
