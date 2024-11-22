@@ -7,9 +7,10 @@ use core::ptr;
 
 use ::libc;
 
-pub use yajl::tree::{yajl_val, ValueType};
+pub use yajl::tree::{Value, ValueType};
 
 pub type yajl_type = c_uint;
+pub type yajl_val = *mut Value;
 
 #[no_mangle]
 pub unsafe extern "C" fn yajl_tree_parse(
