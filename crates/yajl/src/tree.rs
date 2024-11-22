@@ -534,7 +534,7 @@ unsafe extern "C" fn handle_start_array(mut ctx: *mut c_void) -> libc::c_int {
     }
     (*v).u.array.values = ptr::null_mut::<*mut Value>();
     (*v).u.array.len = 0 as libc::c_int as usize;
-    match Context::add_value(ctx as *mut Context, v) {
+    match Context::push(ctx as *mut Context, v) {
         Ok(_) => 1,
         Err(_) => 0,
     }
