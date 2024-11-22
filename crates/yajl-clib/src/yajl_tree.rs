@@ -36,5 +36,5 @@ pub unsafe extern "C" fn yajl_tree_get(
 
 #[no_mangle]
 pub unsafe extern "C" fn yajl_tree_free(mut v: yajl_val) {
-    yajl::tree::yajl_tree_free(v)
+    Value::tree_free(v)
 }

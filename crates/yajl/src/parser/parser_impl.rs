@@ -320,6 +320,7 @@ impl Parser {
         let mut offset: *mut usize = &mut self.bytesConsumed;
         *offset = 0;
         loop {
+            dbg!(self.stateStack.top());
             match self.stateStack.top() {
                 ParseState::ParseComplete => {
                     if self.flags & ParserOption::AllowMultipleValues as u32 != 0 {

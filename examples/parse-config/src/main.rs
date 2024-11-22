@@ -1,7 +1,7 @@
 use std::io::{self, Read};
 
 use ::libc;
-use yajl::tree::{yajl_tree_free, yajl_tree_get, yajl_tree_parse, Value, ValueType};
+use yajl::tree::{yajl_tree_get, yajl_tree_parse, Value, ValueType};
 
 unsafe fn main_0() -> libc::c_int {
     let mut file_data: [libc::c_uchar; 65536] = [0; 65536];
@@ -64,7 +64,7 @@ unsafe fn main_0() -> libc::c_int {
             path[1 as libc::c_int as usize],
         );
     }
-    yajl_tree_free(node);
+    Value::tree_free(node);
     0 as libc::c_int
 }
 pub fn main() {
