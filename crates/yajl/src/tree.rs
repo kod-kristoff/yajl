@@ -2,7 +2,7 @@
 #![allow(unused_unsafe)]
 #![allow(clippy::nonminimal_bool)]
 use core::ffi::{c_char, c_void, CStr};
-use core::ptr;
+use core::{fmt, ptr};
 
 use ::libc;
 
@@ -64,12 +64,31 @@ pub struct Array {
     pub values: *mut *mut Value,
     pub len: usize,
 }
+impl fmt::Debug for Array {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut list = f.debug_list();
+        for i in 0..self.len {
+            list.entry(unsafe { &**self.values.add(i) });
+        }
+        list.finish()
+    }
+}
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct Object {
     pub keys: *mut *const c_char,
     pub values: *mut *mut Value,
     pub len: usize,
+}
+impl fmt::Debug for Object {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut map = f.debug_map();
+        for i in 0..self.len {
+            map.key(unsafe { &CStr::from_ptr(*self.keys.add(i)) });
+            map.value(unsafe { &**self.values.add(i) });
+        }
+        map.finish()
+    }
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -78,6 +97,19 @@ pub struct Number {
     pub d: libc::c_double,
     pub r: *mut c_char,
     pub flags: libc::c_uint,
+}
+impl fmt::Debug for Number {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.flags & 1 != 0 {
+            f.write_fmt(format_args!("Integer({})", self.i))
+        } else if self.flags & 2 != 0 {
+            f.write_fmt(format_args!("Double({})", self.d))
+        } else {
+            f.write_fmt(format_args!("Number({:?})", unsafe {
+                CStr::from_ptr(self.r)
+            }))
+        }
+    }
 }
 pub type context_t = context_s;
 #[derive(Copy, Clone)]
@@ -98,52 +130,81 @@ pub struct stack_elem_s {
 }
 pub type yajl_handle = *mut Parser;
 
-unsafe fn value_alloc(mut type_0: ValueType) -> *mut Value {
-    let mut v: *mut Value = ptr::null_mut();
-    v = libc::malloc(::core::mem::size_of::<Value>()) as *mut Value;
-    if v.is_null() {
-        return 0 as *mut Value;
+impl fmt::Debug for Value {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.type_0 {
+            ValueType::Any => f.write_str("Value::Any"),
+            ValueType::Null => f.write_str("Value::Null"),
+            ValueType::True => f.write_str("Value::True"),
+            ValueType::False => f.write_str("Value::False"),
+            ValueType::Number => f.write_fmt(format_args!("Value::Number({:?})", unsafe {
+                self.u.number
+            })),
+            ValueType::Array => {
+                f.write_fmt(format_args!("Value::Array({:?})", unsafe { self.u.array }))
+            }
+            ValueType::Object => f.write_fmt(format_args!("Value::Object({:?})", unsafe {
+                self.u.object
+            })),
+            ValueType::String => f.write_fmt(format_args!("Value::String({:?})", unsafe {
+                CStr::from_ptr(self.u.string)
+            })),
+        }
     }
-    ptr::write_bytes(v, 0, 1);
+}
+impl Value {
+    unsafe fn alloc(mut type_0: ValueType) -> *mut Value {
+        let mut v: *mut Value = ptr::null_mut();
+        v = libc::malloc(::core::mem::size_of::<Value>()) as *mut Value;
+        if v.is_null() {
+            return 0 as *mut Value;
+        }
+        ptr::write_bytes(v, 0, 1);
 
-    (*v).type_0 = type_0;
-    v
+        (*v).type_0 = type_0;
+        v
+    }
+    unsafe fn object_free(mut v: *mut Value) {
+        let mut i: usize = 0;
+        if !(!v.is_null() && (*v).type_0 == ValueType::Object) {
+            return;
+        }
+        i = 0 as libc::c_int as usize;
+        while i < (*v).u.object.len {
+            libc::free(*((*v).u.object.keys).add(i) as *mut c_char as *mut c_void);
+            let fresh0 = &mut (*((*v).u.object.keys).add(i));
+            *fresh0 = ptr::null::<c_char>();
+            Value::tree_free(*((*v).u.object.values).add(i));
+            let fresh1 = &mut (*((*v).u.object.values).add(i));
+            *fresh1 = 0 as *mut Value;
+            i = i.wrapping_add(1);
+        }
+        libc::free((*v).u.object.keys as *mut c_void);
+        libc::free((*v).u.object.values as *mut c_void);
+        libc::free(v as *mut c_void);
+    }
+    unsafe fn array_free(mut v: *mut Value) {
+        let mut i: usize = 0;
+        if !(!v.is_null() && (*v).type_0 == ValueType::Array) {
+            return;
+        }
+        i = 0 as libc::c_int as usize;
+        while i < (*v).u.array.len {
+            Value::tree_free(*((*v).u.array.values).add(i));
+            let fresh2 = &mut (*((*v).u.array.values).add(i));
+            *fresh2 = 0 as *mut Value;
+            i = i.wrapping_add(1);
+        }
+        libc::free((*v).u.array.values as *mut c_void);
+        libc::free(v as *mut c_void);
+    }
 }
-unsafe fn yajl_object_free(mut v: *mut Value) {
-    let mut i: usize = 0;
-    if !(!v.is_null() && (*v).type_0 == ValueType::Object) {
-        return;
-    }
-    i = 0 as libc::c_int as usize;
-    while i < (*v).u.object.len {
-        libc::free(*((*v).u.object.keys).add(i) as *mut c_char as *mut c_void);
-        let fresh0 = &mut (*((*v).u.object.keys).add(i));
-        *fresh0 = ptr::null::<c_char>();
-        yajl_tree_free(*((*v).u.object.values).add(i));
-        let fresh1 = &mut (*((*v).u.object.values).add(i));
-        *fresh1 = 0 as *mut Value;
-        i = i.wrapping_add(1);
-    }
-    libc::free((*v).u.object.keys as *mut c_void);
-    libc::free((*v).u.object.values as *mut c_void);
-    libc::free(v as *mut c_void);
-}
-unsafe fn yajl_array_free(mut v: *mut Value) {
-    let mut i: usize = 0;
-    if !(!v.is_null() && (*v).type_0 == ValueType::Array) {
-        return;
-    }
-    i = 0 as libc::c_int as usize;
-    while i < (*v).u.array.len {
-        yajl_tree_free(*((*v).u.array.values).add(i));
-        let fresh2 = &mut (*((*v).u.array.values).add(i));
-        *fresh2 = 0 as *mut Value;
-        i = i.wrapping_add(1);
-    }
-    libc::free((*v).u.array.values as *mut c_void);
-    libc::free(v as *mut c_void);
-}
+
 unsafe fn context_push(mut ctx: *mut context_t, mut v: *mut Value) -> libc::c_int {
+    eprintln!("Context::push: v={:?}", *v);
+    if v.is_null() {
+        eprintln!("context_push: v is NULL");
+    }
     let mut stack: *mut stack_elem_t = ptr::null_mut::<stack_elem_t>();
     stack = libc::malloc(::core::mem::size_of::<stack_elem_t>()) as *mut stack_elem_t;
     if stack.is_null() {
@@ -174,12 +235,14 @@ unsafe fn context_pop(mut ctx: *mut context_t) -> *mut Value {
                 b"context_pop: Bottom of stack reached prematurely\0" as *const u8 as *const c_char,
             );
         }
-        return 0 as *mut Value;
+        eprintln!("Context::pop: v=NULL");
+        return ptr::null_mut();
     }
     stack = (*ctx).stack;
     (*ctx).stack = (*stack).next;
     v = (*stack).value;
     libc::free(stack as *mut c_void);
+    eprintln!("Context::pop: v={:?}", *v);
     v
 }
 unsafe fn object_add_keyval(
@@ -311,7 +374,7 @@ unsafe extern "C" fn handle_string(
     mut string_length: usize,
 ) -> libc::c_int {
     let mut v: *mut Value = ptr::null_mut::<Value>();
-    v = value_alloc(ValueType::String);
+    v = Value::alloc(ValueType::String);
     if v.is_null() {
         if !((*(ctx as *mut context_t)).errbuf).is_null() {
             libc::snprintf(
@@ -340,6 +403,7 @@ unsafe extern "C" fn handle_string(
         string_length,
     );
     *((*v).u.string).add(string_length) = 0 as libc::c_int as c_char;
+    dbg!(CStr::from_ptr((*v).u.string));
     if context_add_value(ctx as *mut context_t, v) == 0 as libc::c_int {
         1 as libc::c_int
     } else {
@@ -353,7 +417,7 @@ unsafe extern "C" fn handle_number(
 ) -> libc::c_int {
     let mut v: *mut Value = ptr::null_mut::<Value>();
     let mut endptr: *mut c_char = ptr::null_mut::<c_char>();
-    v = value_alloc(ValueType::Number);
+    v = Value::alloc(ValueType::Number);
     if v.is_null() {
         if !((*(ctx as *mut context_t)).errbuf).is_null() {
             libc::snprintf(
@@ -413,7 +477,7 @@ unsafe extern "C" fn handle_number(
 }
 unsafe extern "C" fn handle_start_map(mut ctx: *mut c_void) -> libc::c_int {
     let mut v: *mut Value = ptr::null_mut::<Value>();
-    v = value_alloc(ValueType::Object);
+    v = Value::alloc(ValueType::Object);
     if v.is_null() {
         if !((*(ctx as *mut context_t)).errbuf).is_null() {
             libc::snprintf(
@@ -435,7 +499,7 @@ unsafe extern "C" fn handle_start_map(mut ctx: *mut c_void) -> libc::c_int {
 }
 unsafe extern "C" fn handle_end_map(mut ctx: *mut c_void) -> libc::c_int {
     let mut v: *mut Value = ptr::null_mut::<Value>();
-    v = context_pop(ctx as *mut context_t);
+    v = dbg!(context_pop(ctx as *mut context_t));
     if v.is_null() {
         return 0 as libc::c_int;
     }
@@ -447,7 +511,7 @@ unsafe extern "C" fn handle_end_map(mut ctx: *mut c_void) -> libc::c_int {
 }
 unsafe extern "C" fn handle_start_array(mut ctx: *mut c_void) -> libc::c_int {
     let mut v: *mut Value = ptr::null_mut::<Value>();
-    v = value_alloc(ValueType::Array);
+    v = Value::alloc(ValueType::Array);
     if v.is_null() {
         if !((*(ctx as *mut context_t)).errbuf).is_null() {
             libc::snprintf(
@@ -483,7 +547,7 @@ unsafe extern "C" fn handle_boolean(
     mut boolean_value: libc::c_int,
 ) -> libc::c_int {
     let mut v: *mut Value = ptr::null_mut::<Value>();
-    v = value_alloc(if boolean_value != 0 {
+    v = Value::alloc(if boolean_value != 0 {
         ValueType::True
     } else {
         ValueType::False
@@ -506,7 +570,7 @@ unsafe extern "C" fn handle_boolean(
 }
 unsafe extern "C" fn handle_null(mut ctx: *mut c_void) -> libc::c_int {
     let mut v: *mut Value = ptr::null_mut::<Value>();
-    v = value_alloc(ValueType::Null);
+    v = Value::alloc(ValueType::Null);
     if v.is_null() {
         if !((*(ctx as *mut context_t)).errbuf).is_null() {
             libc::snprintf(
@@ -687,38 +751,40 @@ unsafe fn yajl_get_array(v: *mut Value) -> *mut Array {
         ptr::null_mut()
     }
 }
-pub unsafe fn yajl_tree_free(mut v: *mut Value) {
-    if v.is_null() {
-        return;
+impl Value {
+    pub unsafe fn tree_free(mut v: *mut Value) {
+        if v.is_null() {
+            return;
+        }
+        match (*v).type_0 {
+            ValueType::String => {
+                libc::free((*v).u.string as *mut c_void);
+                libc::free(v as *mut c_void);
+            }
+            ValueType::Number => {
+                libc::free((*v).u.number.r as *mut c_void);
+                libc::free(v as *mut c_void);
+            }
+            ValueType::Object => {
+                Value::object_free(v);
+            }
+            ValueType::Array => Value::array_free(v),
+            _ => {
+                libc::free(v as *mut c_void);
+            }
+        }
+        // if yajl_is_string(v) {
+        //     libc::free((*v).u.string as *mut c_void);
+        //     libc::free(v as *mut c_void);
+        // } else if yajl_is_number(v) {
+        //     libc::free((*v).u.number.r as *mut c_void);
+        //     libc::free(v as *mut c_void);
+        // } else if !yajl_get_object(v).is_null() {
+        //     yajl_object_free(v);
+        // } else if !yajl_get_array(v).is_null() {
+        //     yajl_array_free(v);
+        // } else {
+        //     libc::free(v as *mut c_void);
+        // };
     }
-    match (*v).type_0 {
-        ValueType::String => {
-            libc::free((*v).u.string as *mut c_void);
-            libc::free(v as *mut c_void);
-        }
-        ValueType::Number => {
-            libc::free((*v).u.number.r as *mut c_void);
-            libc::free(v as *mut c_void);
-        }
-        ValueType::Object => {
-            yajl_object_free(v);
-        }
-        ValueType::Array => yajl_array_free(v),
-        _ => {
-            libc::free(v as *mut c_void);
-        }
-    }
-    // if yajl_is_string(v) {
-    //     libc::free((*v).u.string as *mut c_void);
-    //     libc::free(v as *mut c_void);
-    // } else if yajl_is_number(v) {
-    //     libc::free((*v).u.number.r as *mut c_void);
-    //     libc::free(v as *mut c_void);
-    // } else if !yajl_get_object(v).is_null() {
-    //     yajl_object_free(v);
-    // } else if !yajl_get_array(v).is_null() {
-    //     yajl_array_free(v);
-    // } else {
-    //     libc::free(v as *mut c_void);
-    // };
 }
