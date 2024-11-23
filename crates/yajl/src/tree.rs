@@ -1,10 +1,9 @@
 #![allow(clippy::missing_safety_doc)]
 #![allow(unused_unsafe)]
 #![allow(clippy::nonminimal_bool)]
-use core::ffi::{c_char, c_void, CStr};
-use core::{fmt, ptr};
 
-use ::libc;
+use core::ffi::{c_char, c_double, c_int, c_longlong, c_uchar, c_uint, c_void, CStr};
+use core::{fmt, ptr};
 
 use self::context::{Context, StackElem};
 use crate::{
@@ -96,10 +95,10 @@ impl fmt::Debug for Object {
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct Number {
-    pub i: libc::c_longlong,
-    pub d: libc::c_double,
+    pub i: c_longlong,
+    pub d: c_double,
     pub r: *mut c_char,
-    pub flags: libc::c_uint,
+    pub flags: c_uint,
 }
 impl fmt::Debug for Number {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -138,8 +137,6 @@ impl fmt::Debug for Value {
     }
 }
 
-pub type yajl_handle = *mut Parser;
-
 impl Value {
     unsafe fn alloc(mut type_0: ValueType) -> *mut Value {
         let mut v: *mut Value = ptr::null_mut();
@@ -157,7 +154,7 @@ impl Value {
         if !(!v.is_null() && (*v).type_0 == ValueType::Object) {
             return;
         }
-        i = 0 as libc::c_int as usize;
+        i = 0 as c_int as usize;
         while i < (*v).u.object.len {
             libc::free(*((*v).u.object.keys).add(i) as *mut c_char as *mut c_void);
             let fresh0 = &mut (*((*v).u.object.keys).add(i));
@@ -176,7 +173,7 @@ impl Value {
         if !(!v.is_null() && (*v).type_0 == ValueType::Array) {
             return;
         }
-        i = 0 as libc::c_int as usize;
+        i = 0 as c_int as usize;
         while i < (*v).u.array.len {
             Value::tree_free(*((*v).u.array.values).add(i));
             let fresh2 = &mut (*((*v).u.array.values).add(i));
@@ -190,9 +187,9 @@ impl Value {
 
 unsafe extern "C" fn handle_string(
     mut ctx: *mut c_void,
-    mut string: *const libc::c_uchar,
+    mut string: *const c_uchar,
     mut string_length: usize,
-) -> libc::c_int {
+) -> c_int {
     let mut v: *mut Value = ptr::null_mut::<Value>();
     v = Value::alloc(ValueType::String);
     if v.is_null() {
@@ -203,7 +200,7 @@ unsafe extern "C" fn handle_string(
                 b"Out of memory\0" as *const u8 as *const c_char,
             );
         }
-        return 0 as libc::c_int;
+        return 0 as c_int;
     }
     (*v).u.string = libc::malloc(string_length.wrapping_add(1)) as *mut c_char;
     if ((*v).u.string).is_null() {
@@ -215,14 +212,14 @@ unsafe extern "C" fn handle_string(
                 b"Out of memory\0" as *const u8 as *const c_char,
             );
         }
-        return 0 as libc::c_int;
+        return 0 as c_int;
     }
     libc::memcpy(
         (*v).u.string as *mut c_void,
         string as *const c_void,
         string_length,
     );
-    *((*v).u.string).add(string_length) = 0 as libc::c_int as c_char;
+    *((*v).u.string).add(string_length) = 0 as c_int as c_char;
 
     dbg!(CStr::from_ptr((*v).u.string));
     match Context::add_value(ctx as *mut Context, v) {
@@ -234,7 +231,7 @@ unsafe extern "C" fn handle_number(
     mut ctx: *mut c_void,
     mut string: *const c_char,
     mut string_length: usize,
-) -> libc::c_int {
+) -> c_int {
     let mut v: *mut Value = ptr::null_mut::<Value>();
     let mut endptr: *mut c_char = ptr::null_mut::<c_char>();
     v = Value::alloc(ValueType::Number);
@@ -246,7 +243,7 @@ unsafe extern "C" fn handle_number(
                 b"Out of memory\0" as *const u8 as *const c_char,
             );
         }
-        return 0 as libc::c_int;
+        return 0 as c_int;
     }
     (*v).u.number.r = libc::malloc(string_length.wrapping_add(1)) as *mut c_char;
     if ((*v).u.number.r).is_null() {
@@ -258,15 +255,15 @@ unsafe extern "C" fn handle_number(
                 b"Out of memory\0" as *const u8 as *const c_char,
             );
         }
-        return 0 as libc::c_int;
+        return 0 as c_int;
     }
     libc::memcpy(
         (*v).u.number.r as *mut c_void,
         string as *const c_void,
         string_length,
     );
-    *((*v).u.number.r).add(string_length) = 0 as libc::c_int as c_char;
-    (*v).u.number.flags = 0 as libc::c_int as libc::c_uint;
+    *((*v).u.number.r).add(string_length) = 0 as c_int as c_char;
+    (*v).u.number.flags = 0 as c_int as c_uint;
     (*v).u.number.i =
         match parse_integer((*v).u.number.r as *const u8, libc::strlen((*v).u.number.r)) {
             Ok(integer) => {
@@ -294,7 +291,7 @@ unsafe extern "C" fn handle_number(
         Err(_) => 0,
     }
 }
-unsafe extern "C" fn handle_start_map(mut ctx: *mut c_void) -> libc::c_int {
+unsafe extern "C" fn handle_start_map(mut ctx: *mut c_void) -> c_int {
     let mut v: *mut Value = ptr::null_mut::<Value>();
     v = Value::alloc(ValueType::Object);
     if v.is_null() {
@@ -305,11 +302,11 @@ unsafe extern "C" fn handle_start_map(mut ctx: *mut c_void) -> libc::c_int {
                 b"Out of memory\0" as *const u8 as *const c_char,
             );
         }
-        return 0 as libc::c_int;
+        return 0 as c_int;
     }
     (*v).u.object.keys = ptr::null_mut::<*const c_char>();
     (*v).u.object.values = ptr::null_mut::<*mut Value>();
-    (*v).u.object.len = 0 as libc::c_int as usize;
+    (*v).u.object.len = 0 as c_int as usize;
     match Context::push(ctx as *mut Context, v) {
         Ok(_) => 1,
         Err(_) => 0,
@@ -325,7 +322,7 @@ unsafe extern "C" fn handle_end_map(mut ctx: *mut c_void) -> i32 {
         Err(_) => 0,
     }
 }
-unsafe extern "C" fn handle_start_array(mut ctx: *mut c_void) -> libc::c_int {
+unsafe extern "C" fn handle_start_array(mut ctx: *mut c_void) -> c_int {
     let mut v: *mut Value = ptr::null_mut::<Value>();
     v = Value::alloc(ValueType::Array);
     if v.is_null() {
@@ -336,7 +333,7 @@ unsafe extern "C" fn handle_start_array(mut ctx: *mut c_void) -> libc::c_int {
                 b"Out of memory\0" as *const u8 as *const c_char,
             );
         }
-        return 0 as libc::c_int;
+        return 0 as c_int;
     }
     (*v).u.array.values = ptr::null_mut::<*mut Value>();
     (*v).u.array.len = 0 as libc::c_int as usize;
@@ -354,10 +351,7 @@ unsafe extern "C" fn handle_end_array(mut ctx: *mut c_void) -> i32 {
         Err(_) => 0,
     }
 }
-unsafe extern "C" fn handle_boolean(
-    mut ctx: *mut c_void,
-    mut boolean_value: libc::c_int,
-) -> libc::c_int {
+unsafe extern "C" fn handle_boolean(mut ctx: *mut c_void, mut boolean_value: c_int) -> c_int {
     let mut v: *mut Value = ptr::null_mut::<Value>();
     v = Value::alloc(if boolean_value != 0 {
         ValueType::True
@@ -372,14 +366,14 @@ unsafe extern "C" fn handle_boolean(
                 b"Out of memory\0" as *const u8 as *const c_char,
             );
         }
-        return 0 as libc::c_int;
+        return 0 as c_int;
     }
     match Context::add_value(ctx as *mut Context, v) {
         Ok(_) => 1,
         Err(_) => 0,
     }
 }
-unsafe extern "C" fn handle_null(mut ctx: *mut c_void) -> libc::c_int {
+unsafe extern "C" fn handle_null(mut ctx: *mut c_void) -> c_int {
     let mut v: *mut Value = ptr::null_mut::<Value>();
     v = Value::alloc(ValueType::Null);
     if v.is_null() {
@@ -390,7 +384,7 @@ unsafe extern "C" fn handle_null(mut ctx: *mut c_void) -> libc::c_int {
                 b"Out of memory\0" as *const u8 as *const c_char,
             );
         }
-        return 0 as libc::c_int;
+        return 0 as c_int;
     }
     match Context::add_value(ctx as *mut Context, v) {
         Ok(_) => 1,
@@ -406,48 +400,38 @@ pub unsafe fn yajl_tree_parse(
     static mut callbacks: yajl_callbacks = unsafe {
         {
             yajl_callbacks {
-                yajl_null: Some(handle_null as unsafe extern "C" fn(*mut c_void) -> libc::c_int),
+                yajl_null: Some(handle_null as unsafe extern "C" fn(*mut c_void) -> c_int),
                 yajl_boolean: Some(
-                    handle_boolean as unsafe extern "C" fn(*mut c_void, libc::c_int) -> libc::c_int,
+                    handle_boolean as unsafe extern "C" fn(*mut c_void, c_int) -> c_int,
                 ),
                 yajl_integer: None,
                 yajl_double: None,
                 yajl_number: Some(
                     handle_number
-                        as unsafe extern "C" fn(*mut c_void, *const c_char, usize) -> libc::c_int,
+                        as unsafe extern "C" fn(*mut c_void, *const c_char, usize) -> c_int,
                 ),
                 yajl_string: Some(
                     handle_string
-                        as unsafe extern "C" fn(
-                            *mut c_void,
-                            *const libc::c_uchar,
-                            usize,
-                        ) -> libc::c_int,
+                        as unsafe extern "C" fn(*mut c_void, *const c_uchar, usize) -> c_int,
                 ),
                 yajl_start_map: Some(
-                    handle_start_map as unsafe extern "C" fn(*mut c_void) -> libc::c_int,
+                    handle_start_map as unsafe extern "C" fn(*mut c_void) -> c_int,
                 ),
                 yajl_map_key: Some(
                     handle_string
-                        as unsafe extern "C" fn(
-                            *mut c_void,
-                            *const libc::c_uchar,
-                            usize,
-                        ) -> libc::c_int,
+                        as unsafe extern "C" fn(*mut c_void, *const c_uchar, usize) -> c_int,
                 ),
-                yajl_end_map: Some(
-                    handle_end_map as unsafe extern "C" fn(*mut c_void) -> libc::c_int,
-                ),
+                yajl_end_map: Some(handle_end_map as unsafe extern "C" fn(*mut c_void) -> c_int),
                 yajl_start_array: Some(
-                    handle_start_array as unsafe extern "C" fn(*mut c_void) -> libc::c_int,
+                    handle_start_array as unsafe extern "C" fn(*mut c_void) -> c_int,
                 ),
                 yajl_end_array: Some(
-                    handle_end_array as unsafe extern "C" fn(*mut c_void) -> libc::c_int,
+                    handle_end_array as unsafe extern "C" fn(*mut c_void) -> c_int,
                 ),
             }
         }
     };
-    let mut handle: yajl_handle = ptr::null_mut::<Parser>();
+    let mut handle: *mut Parser = ptr::null_mut();
     let mut status = Status::Ok;
     let mut internal_err_str: *mut c_char = ptr::null_mut::<c_char>();
     let mut ctx: Context = {
@@ -455,7 +439,7 @@ pub unsafe fn yajl_tree_parse(
             stack: ptr::null_mut::<StackElem>(),
             root: 0 as *mut Value,
             errbuf: ptr::null_mut::<c_char>(),
-            errbuf_size: 0 as libc::c_int as usize,
+            errbuf_size: 0 as c_int as usize,
         }
     };
     ctx.errbuf = error_buffer;
@@ -473,13 +457,12 @@ pub unsafe fn yajl_tree_parse(
     );
     let parser = unsafe { &mut *handle };
     parser.config(ParserOption::AllowComments, true);
-    status = parser.parse(input as *mut libc::c_uchar, libc::strlen(input));
+    status = parser.parse(input as *mut c_uchar, libc::strlen(input));
     status = parser.complete_parse();
-    if status as libc::c_uint != Status::Ok as libc::c_int as libc::c_uint {
-        if !error_buffer.is_null() && error_buffer_size > 0 as libc::c_int as usize {
+    if status as c_uint != Status::Ok as c_int as c_uint {
+        if !error_buffer.is_null() && error_buffer_size > 0 as c_int as usize {
             internal_err_str =
-                parser.get_error(true, input as *const libc::c_uchar, libc::strlen(input))
-                    as *mut c_char;
+                parser.get_error(true, input as *const c_uchar, libc::strlen(input)) as *mut c_char;
             libc::snprintf(
                 error_buffer,
                 error_buffer_size,
@@ -509,11 +492,11 @@ pub unsafe fn yajl_tree_get(
     while !n.is_null() && !(*path).is_null() {
         let mut i: usize = 0;
         let mut len: usize = 0;
-        if (*n).type_0 as libc::c_uint != ValueType::Object as libc::c_int as libc::c_uint {
+        if (*n).type_0 as c_uint != ValueType::Object as c_int as c_uint {
             return 0 as *mut Value;
         }
         len = (*n).u.object.len;
-        i = 0 as libc::c_int as usize;
+        i = 0 as c_int as usize;
         while i < len {
             if libc::strcmp(*path, *((*n).u.object.keys).add(i)) == 0 {
                 n = *((*n).u.object.values).add(i);
@@ -528,8 +511,8 @@ pub unsafe fn yajl_tree_get(
         path = path.offset(1);
     }
     if !n.is_null()
-        && type_0 as libc::c_uint != ValueType::Any as libc::c_int as libc::c_uint
-        && type_0 as libc::c_uint != (*n).type_0 as libc::c_uint
+        && type_0 as c_uint != ValueType::Any as c_int as c_uint
+        && type_0 as c_uint != (*n).type_0 as c_uint
     {
         n = 0 as *mut Value;
     }
