@@ -1,6 +1,6 @@
 #![allow(clippy::missing_safety_doc)]
 use core::ffi::{c_char, c_void, CStr};
-use core::ptr;
+use core::{ptr, slice};
 
 use crate::{yajl_alloc::yajl_alloc_funcs, yajl_encode::yajl_string_decode, ParserOption, Status};
 
@@ -448,6 +448,8 @@ impl Parser {
                         }
                         Token::Integer => {
                             if !(self.callbacks).is_null() {
+                                let bytes = slice::from_raw_parts(buf, bufLen);
+                                dbg!(bytes);
                                 if ((*self.callbacks).yajl_number).is_some() {
                                     if ((*self.callbacks).yajl_number)
                                         .expect("non-null function pointer")(
@@ -471,6 +473,7 @@ impl Parser {
                                         }
                                         continue;
                                     };
+                                    dbg!(&i);
                                     if ((*self.callbacks).yajl_integer)
                                         .expect("non-null function pointer")(
                                         self.ctx, i
@@ -673,6 +676,7 @@ impl Parser {
                 }
                 ParseState::MapGotVal => {
                     tok = (*self.lexer).lex(jsonText, jsonTextLen, offset, &mut buf, &mut bufLen);
+                    dbg!(tok);
                     match tok {
                         Token::RightBracket => {
                             if !(self.callbacks).is_null()

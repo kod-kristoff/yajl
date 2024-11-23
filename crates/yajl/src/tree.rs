@@ -5,7 +5,7 @@
 use core::ffi::{c_char, c_double, c_int, c_longlong, c_uchar, c_uint, c_void, CStr};
 use core::{fmt, ptr};
 
-use self::context::{Context, StackElem};
+use self::context::Context;
 use crate::{
     parser::{parse_integer, yajl_callbacks, ParseIntegerError, Parser},
     yajl_alloc::yajl_alloc_funcs,
@@ -138,6 +138,9 @@ impl fmt::Debug for Value {
 }
 
 impl Value {
+    const NUMBER_INT_VALID: c_uint = 0x01;
+    const NUMBER_DOUBLE_VALID: c_uint = 0x02;
+
     unsafe fn alloc(mut type_0: ValueType) -> *mut Value {
         let mut v: *mut Value = ptr::null_mut();
         v = libc::malloc(::core::mem::size_of::<Value>()) as *mut Value;
@@ -182,6 +185,120 @@ impl Value {
         }
         libc::free((*v).u.array.values as *mut c_void);
         libc::free(v as *mut c_void);
+    }
+    pub fn is_string(&self) -> bool {
+        self.type_0 == ValueType::String
+    }
+    pub fn is_number(&self) -> bool {
+        self.type_0 == ValueType::Number
+    }
+    pub fn is_integer(&self) -> bool {
+        self.is_number() && unsafe { self.u.number.flags } & Self::NUMBER_INT_VALID != 0
+    }
+    pub fn is_double(&self) -> bool {
+        self.is_number() && unsafe { self.u.number.flags } & Self::NUMBER_DOUBLE_VALID != 0
+    }
+    pub fn is_object(&self) -> bool {
+        self.type_0 == ValueType::Object
+    }
+    pub fn is_array(&self) -> bool {
+        self.type_0 == ValueType::Array
+    }
+    pub fn is_true(&self) -> bool {
+        self.type_0 == ValueType::True
+    }
+    pub fn is_false(&self) -> bool {
+        self.type_0 == ValueType::False
+    }
+    pub fn is_null(&self) -> bool {
+        self.type_0 == ValueType::Null
+    }
+
+    /// Return a bool if the value is a bool, otherwise `None`.
+    pub fn as_bool(&self) -> Option<bool> {
+        match self.type_0 {
+            ValueType::True => Some(true),
+            ValueType::False => Some(false),
+            _ => None,
+        }
+    }
+    /// Given a yajl_val_string return a *const ptr to the bare string it contains,
+    /// or `None` if the value is not a string.
+    pub fn as_string(&self) -> Option<*const c_char> {
+        if self.is_string() {
+            Some(unsafe { self.u.string })
+        } else {
+            None
+        }
+    }
+    /// Given a yajl_val_string return a *mut ptr to the bare string it contains,
+    /// or `None` if the value is not a string.
+    pub fn as_string_mut(&mut self) -> Option<*mut c_char> {
+        if self.is_string() {
+            Some(unsafe { self.u.string })
+        } else {
+            None
+        }
+    }
+    /// Get the string representation of a number.
+    /// Returns None if this Value is not a number.
+    pub fn as_number(&self) -> Option<*const c_char> {
+        if self.is_number() {
+            Some(unsafe { self.u.number.r })
+        } else {
+            None
+        }
+    }
+
+    /// Get the double representation of a number,
+    /// or `None` if the value is not a double.
+    pub fn as_double(&self) -> Option<c_double> {
+        if self.is_double() {
+            Some(unsafe { self.u.number.d })
+        } else {
+            None
+        }
+    }
+    /// Get the 64bit (long long) integer representation of a number
+    /// or `None` if the value is not an integer.
+    pub fn as_integer(&self) -> Option<c_longlong> {
+        if self.is_integer() {
+            Some(unsafe { self.u.number.i })
+        } else {
+            None
+        }
+    }
+    /// Get a const pointer to a `Object` or `None` if the value is not an object.
+    pub fn as_object(&self) -> Option<*const Object> {
+        if self.is_object() {
+            Some(unsafe { &self.u.object })
+        } else {
+            None
+        }
+    }
+    /// Get a mut pointer to a `Object` or `None` if the value is not an object.
+    pub fn as_object_mut(&mut self) -> Option<*mut Object> {
+        if self.is_object() {
+            Some(unsafe { &mut self.u.object })
+        } else {
+            None
+        }
+    }
+    /// Get a const pointer to a `Array` or `None` if the value is not an object.
+    pub fn as_array(&self) -> Option<*const Array> {
+        if self.is_array() {
+            Some(unsafe { &self.u.array })
+        } else {
+            None
+        }
+    }
+    /// Get a mut pointer to a `Array` or `None` if the value is not an object.
+    pub fn as_array_mut(&mut self) -> Option<*mut Array> {
+        if self.is_array() {
+            Some(unsafe { &mut self.u.array })
+        } else {
+            None
+        }
     }
 }
 
@@ -286,7 +403,7 @@ unsafe extern "C" fn handle_number(
         (*v).u.number.d = 0f64;
     };
 
-    match Context::add_value(ctx as *mut Context, v) {
+    match dbg!(Context::add_value(ctx as *mut Context, v)) {
         Ok(_) => 1,
         Err(_) => 0,
     }
@@ -314,10 +431,13 @@ unsafe extern "C" fn handle_start_map(mut ctx: *mut c_void) -> c_int {
 }
 
 unsafe extern "C" fn handle_end_map(mut ctx: *mut c_void) -> i32 {
-    let Ok(v) = Context::pop(ctx as *mut Context) else {
+    let Ok(v) = dbg!(Context::pop(ctx as *mut Context)) else {
         return 0;
     };
-    match Context::add_value(ctx as *mut Context, v) {
+    if v.is_null() {
+        return 0;
+    }
+    match dbg!(Context::add_value(ctx as *mut Context, dbg!(v))) {
         Ok(_) => 1,
         Err(_) => 0,
     }
@@ -346,6 +466,9 @@ unsafe extern "C" fn handle_end_array(mut ctx: *mut c_void) -> i32 {
     let Ok(v) = Context::pop(ctx as *mut Context) else {
         return 0;
     };
+    if v.is_null() {
+        return 0;
+    }
     match Context::add_value(ctx as *mut Context, v) {
         Ok(_) => 1,
         Err(_) => 0,
@@ -396,7 +519,7 @@ pub unsafe fn yajl_tree_parse(
     mut input: *const c_char,
     mut error_buffer: *mut c_char,
     mut error_buffer_size: usize,
-) -> *mut Value {
+) -> Option<*mut Value> {
     static mut callbacks: yajl_callbacks = unsafe {
         {
             yajl_callbacks {
@@ -431,37 +554,21 @@ pub unsafe fn yajl_tree_parse(
             }
         }
     };
-    let mut handle: *mut Parser = ptr::null_mut();
-    let mut status = Status::Ok;
-    let mut internal_err_str: *mut c_char = ptr::null_mut::<c_char>();
-    let mut ctx: Context = {
-        Context {
-            stack: ptr::null_mut::<StackElem>(),
-            root: 0 as *mut Value,
-            errbuf: ptr::null_mut::<c_char>(),
-            errbuf_size: 0 as c_int as usize,
-        }
-    };
-    ctx.errbuf = error_buffer;
-    ctx.errbuf_size = error_buffer_size;
-    if !error_buffer.is_null() {
-        ptr::write_bytes(error_buffer as *mut c_void, 0, error_buffer_size)
+    let mut ctx = Context::new(error_buffer, error_buffer_size);
 
-        //     error_buffer_size,
-        // );
-    }
-    handle = Parser::alloc(
+    let mut handle = Parser::alloc(
         ptr::addr_of!(callbacks),
         ptr::null_mut::<yajl_alloc_funcs>(),
         &mut ctx as *mut Context as *mut c_void,
     );
     let parser = unsafe { &mut *handle };
     parser.config(ParserOption::AllowComments, true);
-    status = parser.parse(input as *mut c_uchar, libc::strlen(input));
+    let mut status = parser.parse(input as *mut c_uchar, libc::strlen(input));
+    dbg!(&status);
     status = parser.complete_parse();
-    if status as c_uint != Status::Ok as c_int as c_uint {
-        if !error_buffer.is_null() && error_buffer_size > 0 as c_int as usize {
-            internal_err_str =
+    if status != Status::Ok {
+        if !error_buffer.is_null() && error_buffer_size > 0 {
+            let internal_err_str =
                 parser.get_error(true, input as *const c_uchar, libc::strlen(input)) as *mut c_char;
             libc::snprintf(
                 error_buffer,
@@ -475,25 +582,26 @@ pub unsafe fn yajl_tree_parse(
             );
         }
         Parser::free(handle);
-        return 0 as *mut Value;
+        return None;
     }
     Parser::free(handle);
-    ctx.root
+    debug_assert!(!ctx.root.is_null());
+    Some(ctx.root)
 }
 
 pub unsafe fn yajl_tree_get(
     mut n: *mut Value,
     mut path: *mut *const c_char,
     mut type_0: ValueType,
-) -> *mut Value {
+) -> Option<*mut Value> {
     if path.is_null() {
-        return 0 as *mut Value;
+        return None;
     }
     while !n.is_null() && !(*path).is_null() {
         let mut i: usize = 0;
         let mut len: usize = 0;
-        if (*n).type_0 as c_uint != ValueType::Object as c_int as c_uint {
-            return 0 as *mut Value;
+        if !(*n).is_object() {
+            return None;
         }
         len = (*n).u.object.len;
         i = 0 as c_int as usize;
@@ -506,17 +614,15 @@ pub unsafe fn yajl_tree_get(
             }
         }
         if i == len {
-            return 0 as *mut Value;
+            return None;
         }
         path = path.offset(1);
     }
-    if !n.is_null()
-        && type_0 as c_uint != ValueType::Any as c_int as c_uint
-        && type_0 as c_uint != (*n).type_0 as c_uint
-    {
-        n = 0 as *mut Value;
+    if !n.is_null() && type_0 != ValueType::Any && type_0 != (*n).type_0 {
+        return None;
     }
-    n
+    debug_assert!(!n.is_null());
+    Some(n)
 }
 unsafe fn yajl_is_string(v: *mut Value) -> bool {
     !v.is_null() && (*v).type_0 == ValueType::String

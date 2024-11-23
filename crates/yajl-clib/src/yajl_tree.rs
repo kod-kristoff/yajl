@@ -18,7 +18,10 @@ pub unsafe extern "C" fn yajl_tree_parse(
     mut error_buffer: *mut libc::c_char,
     mut error_buffer_size: usize,
 ) -> yajl_val {
-    yajl::tree::yajl_tree_parse(input, error_buffer, error_buffer_size)
+    match yajl::tree::yajl_tree_parse(input, error_buffer, error_buffer_size) {
+        Some(value) => value,
+        None => ptr::null_mut(),
+    }
 }
 
 #[no_mangle]
@@ -28,7 +31,10 @@ pub unsafe extern "C" fn yajl_tree_get(
     mut type_0: yajl_type,
 ) -> yajl_val {
     if let Some(r#type) = ValueType::from_repr(type_0) {
-        yajl::tree::yajl_tree_get(n, path, r#type)
+        match yajl::tree::yajl_tree_get(n, path, r#type) {
+            Some(value) => value,
+            None => ptr::null_mut(),
+        }
     } else {
         ptr::null_mut()
     }

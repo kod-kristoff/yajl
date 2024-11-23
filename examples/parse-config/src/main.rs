@@ -23,12 +23,11 @@ unsafe fn main_0() -> libc::c_int {
         eprintln!("config file too big");
         return 1 as libc::c_int;
     }
-    let node = yajl_tree_parse(
+    let Some(node) = yajl_tree_parse(
         file_data.as_mut_ptr() as *const libc::c_char,
         errbuf.as_mut_ptr(),
         ::core::mem::size_of::<[libc::c_char; 1024]>(),
-    );
-    if node.is_null() {
+    ) else {
         eprint!("parse_error: ");
         if libc::strlen(errbuf.as_mut_ptr()) != 0 {
             eprintln!(
@@ -39,14 +38,13 @@ unsafe fn main_0() -> libc::c_int {
             eprintln!("unknown error");
         }
         return 1 as libc::c_int;
-    }
+    };
     let mut path: [*const libc::c_char; 3] = [
         b"Logging\0" as *const u8 as *const libc::c_char,
         b"timeFormat\0" as *const u8 as *const libc::c_char,
         std::ptr::null::<libc::c_char>(),
     ];
-    let v: *mut Value = yajl_tree_get(node, path.as_mut_ptr(), ValueType::String);
-    if !v.is_null() {
+    if let Some(v) = yajl_tree_get(node, path.as_mut_ptr(), ValueType::String) {
         libc::printf(
             b"%s/%s: %s\n\0" as *const u8 as *const libc::c_char,
             path[0 as libc::c_int as usize],

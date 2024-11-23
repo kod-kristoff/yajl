@@ -22,3 +22,9 @@ name = "yajl"
 crate-type = ["staticlib", "cdylib"]
 doctest = false
 doc = false
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
