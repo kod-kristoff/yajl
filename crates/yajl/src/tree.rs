@@ -115,18 +115,17 @@ impl fmt::Debug for Number {
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct Context {
-    pub stack: *mut stack_elem_t,
+    pub stack: *mut StackElem,
     pub root: *mut Value,
     pub errbuf: *mut c_char,
     pub errbuf_size: usize,
 }
-pub type stack_elem_t = stack_elem_s;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct stack_elem_s {
+pub struct StackElem {
     pub key: *mut c_char,
     pub value: *mut Value,
-    pub next: *mut stack_elem_t,
+    pub next: *mut StackElem,
 }
 pub type yajl_handle = *mut Parser;
 
@@ -213,8 +212,8 @@ impl Value {
 impl Context {
     unsafe fn push(mut ctx: *mut Context, mut v: *mut Value) -> Result<(), ContextError> {
         eprintln!("Context::push: v={:?}", *v);
-        let mut stack: *mut stack_elem_t = ptr::null_mut::<stack_elem_t>();
-        stack = libc::malloc(::core::mem::size_of::<stack_elem_t>()) as *mut stack_elem_t;
+        let mut stack: *mut StackElem = ptr::null_mut::<StackElem>();
+        stack = libc::malloc(::core::mem::size_of::<StackElem>()) as *mut StackElem;
         if stack.is_null() {
             if !((*ctx).errbuf).is_null() {
                 libc::snprintf(
@@ -233,7 +232,7 @@ impl Context {
         Ok(())
     }
     unsafe fn pop(mut ctx: *mut Context) -> Result<*mut Value, ContextError> {
-        let mut stack: *mut stack_elem_t = ptr::null_mut::<stack_elem_t>();
+        let mut stack: *mut StackElem = ptr::null_mut::<StackElem>();
         let mut v: *mut Value = ptr::null_mut::<Value>();
         if ((*ctx).stack).is_null() {
             if !((*ctx).errbuf).is_null() {
@@ -646,7 +645,7 @@ pub unsafe fn yajl_tree_parse(
     let mut internal_err_str: *mut c_char = ptr::null_mut::<c_char>();
     let mut ctx: Context = {
         Context {
-            stack: ptr::null_mut::<stack_elem_t>(),
+            stack: ptr::null_mut::<StackElem>(),
             root: 0 as *mut Value,
             errbuf: ptr::null_mut::<c_char>(),
             errbuf_size: 0 as libc::c_int as usize,
