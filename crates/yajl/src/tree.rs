@@ -338,7 +338,6 @@ unsafe extern "C" fn handle_string(
     );
     *((*v).u.string).add(string_length) = 0 as c_int as c_char;
 
-    dbg!(CStr::from_ptr((*v).u.string));
     match Context::add_value(ctx as *mut Context, v) {
         Ok(_) => 1,
         Err(_) => 0,
@@ -403,7 +402,7 @@ unsafe extern "C" fn handle_number(
         (*v).u.number.d = 0f64;
     };
 
-    match dbg!(Context::add_value(ctx as *mut Context, v)) {
+    match Context::add_value(ctx as *mut Context, v) {
         Ok(_) => 1,
         Err(_) => 0,
     }
@@ -431,13 +430,13 @@ unsafe extern "C" fn handle_start_map(mut ctx: *mut c_void) -> c_int {
 }
 
 unsafe extern "C" fn handle_end_map(mut ctx: *mut c_void) -> i32 {
-    let Ok(v) = dbg!(Context::pop(ctx as *mut Context)) else {
+    let Ok(v) = Context::pop(ctx as *mut Context) else {
         return 0;
     };
     if v.is_null() {
         return 0;
     }
-    match dbg!(Context::add_value(ctx as *mut Context, dbg!(v))) {
+    match Context::add_value(ctx as *mut Context, v) {
         Ok(_) => 1,
         Err(_) => 0,
     }
@@ -564,7 +563,6 @@ pub unsafe fn yajl_tree_parse(
     let parser = unsafe { &mut *handle };
     parser.config(ParserOption::AllowComments, true);
     let mut status = parser.parse(input as *mut c_uchar, libc::strlen(input));
-    dbg!(&status);
     status = parser.complete_parse();
     if status != Status::Ok {
         if !error_buffer.is_null() && error_buffer_size > 0 {
