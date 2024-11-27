@@ -43,8 +43,6 @@ impl Context {
         }
     }
     pub unsafe fn push(mut ctx: *mut Context, mut v: *mut Value) -> Result<(), ContextError> {
-        eprintln!("Context::push: v={:?}", *v);
-
         let stack = libc::malloc(::core::mem::size_of::<StackElem>()) as *mut StackElem;
         if stack.is_null() {
             if !((*ctx).errbuf).is_null() {
@@ -73,13 +71,12 @@ impl Context {
                         as *const c_char,
                 );
             }
-            return dbg!(Err(ContextError::BottomOfStackReachedPrematurely));
+            return Err(ContextError::BottomOfStackReachedPrematurely);
         }
         let stack = (*ctx).stack;
         (*ctx).stack = (*stack).next;
         let v = (*stack).value;
         libc::free(stack as *mut c_void);
-        eprintln!("Context::pop: v={:?}", *v);
         Ok(v)
     }
 
