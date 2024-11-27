@@ -100,10 +100,6 @@ extern "C" {
 pub struct yajl_gen_t {
     _private: [u8; 0],
 }
-#[repr(C)]
-pub struct yajl_val_s {
-    _private: [u8; 0],
-}
 
 pub type yajl_gen = *mut yajl_gen_t;
 pub type yajl_gen_option = libc::c_uint;
@@ -118,7 +114,6 @@ pub const yajl_max_depth_exceeded: yajl_gen_status = 2;
 pub const yajl_gen_keys_must_be_strings: yajl_gen_status = 1;
 pub const yajl_gen_status_ok: yajl_gen_status = 0;
 pub type yajl_status = libc::c_uint;
-pub type yajl_type = libc::c_uint;
 pub type yajl_val = *mut yajl_val_s;
 pub type yajl_malloc_func =
     Option<unsafe extern "C" fn(*mut libc::c_void, usize) -> *mut libc::c_void>;
@@ -157,4 +152,48 @@ pub struct yajl_callbacks {
     pub yajl_end_map: Option<unsafe extern "C" fn(*mut libc::c_void) -> libc::c_int>,
     pub yajl_start_array: Option<unsafe extern "C" fn(*mut libc::c_void) -> libc::c_int>,
     pub yajl_end_array: Option<unsafe extern "C" fn(*mut libc::c_void) -> libc::c_int>,
+}
+pub type yajl_type = libc::c_uint;
+pub const yajl_t_any: yajl_type = 8;
+pub const yajl_t_null: yajl_type = 7;
+pub const yajl_t_false: yajl_type = 6;
+pub const yajl_t_true: yajl_type = 5;
+pub const yajl_t_array: yajl_type = 4;
+pub const yajl_t_object: yajl_type = 3;
+pub const yajl_t_number: yajl_type = 2;
+pub const yajl_t_string: yajl_type = 1;
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct yajl_val_s {
+    pub type_0: yajl_type,
+    pub u: U,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub union U {
+    pub string: *mut libc::c_char,
+    pub number: Number,
+    pub object: Object,
+    pub array: Array,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Array {
+    pub values: *mut yajl_val,
+    pub len: usize,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Object {
+    pub keys: *mut *const libc::c_char,
+    pub values: *mut yajl_val,
+    pub len: usize,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Number {
+    pub i: libc::c_longlong,
+    pub d: libc::c_double,
+    pub r: *mut libc::c_char,
+    pub flags: libc::c_uint,
 }
