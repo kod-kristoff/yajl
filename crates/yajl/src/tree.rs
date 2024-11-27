@@ -670,18 +670,5 @@ impl Value {
                 libc::free(v as *mut c_void);
             }
         }
-        // if yajl_is_string(v) {
-        //     libc::free((*v).u.string as *mut c_void);
-        //     libc::free(v as *mut c_void);
-        // } else if yajl_is_number(v) {
-        //     libc::free((*v).u.number.r as *mut c_void);
-        //     libc::free(v as *mut c_void);
-        // } else if !yajl_get_object(v).is_null() {
-        //     yajl_object_free(v);
-        // } else if !yajl_get_array(v).is_null() {
-        //     yajl_array_free(v);
-        // } else {
-        //     libc::free(v as *mut c_void);
-        // };
     }
 }
