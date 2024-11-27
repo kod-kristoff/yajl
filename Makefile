@@ -81,22 +81,22 @@ $(YAJL_TEST_RS): examples/yajl_test/src/main.rs examples/yajl_test/Cargo.toml $(
 	cargo build --package yajl_test
 
 run-parse-config: bin/parse_config
-	LD_LIBRARY_PATH=target/debug bin/parse_config < examples/sample.config
+	LD_LIBRARY_PATH=target/debug bin/parse_config < assets/sample.config
 
 run-parse-config-rs:
-	cargo run --package parse-config < examples/sample.config
+	cargo run --package parse-config < assets/sample.config
 
 run-json-verify: bin/json_verify
-	LD_LIBRARY_PATH=target/debug bin/json_verify -c < examples/sample.config
+	LD_LIBRARY_PATH=target/debug bin/json_verify -c < assets/sample.config
 
 run-json-verify-rs:
-	cargo run --package json-verify -- -c < examples/sample.config
+	cargo run --package json-verify -- -c < assets/sample.config
 
 run-json-reformat: bin/json_reformat
-	LD_LIBRARY_PATH=target/debug bin/json_reformat < examples/sample.config
+	LD_LIBRARY_PATH=target/debug bin/json_reformat < assets/sample.config
 
 run-json-reformat-rs:
-	cargo run --package json-reformat < examples/sample.config
+	cargo run --package json-reformat < assets/sample.config
 
 run-test-parsing: test-parsing
 test-parsing: $(YAJL_TEST)
