@@ -11,3 +11,7 @@ libc = { workspace = true }
 [features]
 default = []
 nightly = []
+
+[dev-dependencies]
+insta = { version = "1.41.1", features = ["yaml"] }
+rstest = "0.23.0"
