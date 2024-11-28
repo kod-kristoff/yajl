@@ -1,14 +1,17 @@
 extern "C" {
     fn yajl_tree_parse(
-        input: *const libc::c_char,
-        error_buffer: *mut libc::c_char,
+        input: *const c_char,
+        error_buffer: *mut c_char,
         error_buffer_size: usize,
     ) -> yajl_val;
-    fn yajl_tree_get(n: yajl_val, path: *mut *const libc::c_char, type_0: yajl_type) -> yajl_val;
+    fn yajl_tree_get(n: yajl_val, path: *mut *const c_char, type_0: yajl_type) -> yajl_val;
 
     fn yajl_tree_free(v: yajl_val);
 }
-use std::{ffi::CStr, fs, ptr};
+use std::{
+    ffi::{c_char, CStr},
+    fs, ptr,
+};
 
 use rstest::{fixture, rstest};
 use yajl_ffi_test_suite::{yajl_t_any, yajl_t_number, yajl_type, yajl_val, FreeGuard};
@@ -99,9 +102,9 @@ fn yajl_tree_parse_fails_when_passing_null_as_input_and_as_error_nuffer(
 
 #[test]
 fn yajl_tree_get_fails_when_passing_null_as_input() {
-    let mut path: [*const libc::c_char; 3] = [
-        b"Logging\0" as *const u8 as *const libc::c_char,
-        b"fileRolloverKB\0" as *const u8 as *const libc::c_char,
+    let mut path: [*const c_char; 3] = [
+        b"Logging\0" as *const u8 as *const c_char,
+        b"fileRolloverKB\0" as *const u8 as *const c_char,
         ptr::null(),
     ];
     let val = unsafe { yajl_tree_get(ptr::null_mut(), path.as_mut_ptr(), yajl_t_any) };
