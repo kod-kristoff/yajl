@@ -6,7 +6,7 @@ extern "C" {
 
 }
 
-use yajl_test_suite::{
+use yajl_ffi_test_suite::{
     yajl_alloc_funcs, yajl_gen, yajl_gen_generation_complete, yajl_gen_status, yajl_gen_status_ok,
 };
 

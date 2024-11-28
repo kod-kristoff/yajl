@@ -3,7 +3,7 @@ resolver = "2"
 members = [
     "crates/yajl",
     "crates/yajl-clib",
-    "crates/yajl-test-suite",
+    "crates/yajl-ffi-test-suite",
     "examples/yajl_test",
     "examples/perftest",
     "examples/parse-config",

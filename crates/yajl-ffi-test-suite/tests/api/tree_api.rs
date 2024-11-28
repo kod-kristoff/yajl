@@ -11,7 +11,7 @@ extern "C" {
 use std::{ffi::CStr, fs, ptr};
 
 use rstest::{fixture, rstest};
-use yajl_test_suite::{yajl_t_any, yajl_t_number, yajl_type, yajl_val, FreeGuard};
+use yajl_ffi_test_suite::{yajl_t_any, yajl_t_number, yajl_type, yajl_val, FreeGuard};
 
 #[fixture]
 fn sample_config_data() -> Vec<u8> {
