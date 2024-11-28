@@ -575,7 +575,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "yajl-test-suite"
+name = "yajl-ffi-test-suite"
 version = "0.1.0"
 dependencies = [
  "insta",

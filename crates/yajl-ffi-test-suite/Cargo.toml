@@ -1,8 +1,9 @@
 [package]
-name = "yajl-test-suite"
+name = "yajl-ffi-test-suite"
 edition.workspace = true
 version.workspace = true
 rust-version.workspace = true
+publish = false
 
 [dependencies]
 yajl-clib = { workspace = true }
