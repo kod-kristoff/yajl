@@ -14,7 +14,9 @@ use std::{
 };
 
 use rstest::{fixture, rstest};
-use yajl_ffi_test_suite::{yajl_t_any, yajl_t_number, yajl_type, yajl_val, FreeGuard};
+use yajl_ffi_test_suite::{
+    yajl_t_any, yajl_t_number, yajl_t_string, yajl_type, yajl_val, FreeGuard,
+};
 
 #[fixture]
 fn sample_config_data() -> Vec<u8> {
@@ -25,9 +27,8 @@ fn sample_config_data() -> Vec<u8> {
 #[rstest]
 #[case(0)]
 #[case(128)]
-fn tree_parse(#[case] buffer_size: usize, sample_config_data: Vec<u8>) {
+fn tree_parse_and_get_number(#[case] buffer_size: usize, sample_config_data: Vec<u8>) {
     let mut error_buffer = vec![0; buffer_size];
-
     let node = unsafe {
         yajl_tree_parse(
             sample_config_data.as_ptr() as *const i8,
@@ -42,17 +43,56 @@ fn tree_parse(#[case] buffer_size: usize, sample_config_data: Vec<u8>) {
     assert!(!node.is_null());
     let _guard = FreeGuard::new(node, yajl_tree_free);
 
-    let mut path: [*const libc::c_char; 3] = [
-        b"Logging\0" as *const u8 as *const libc::c_char,
-        b"fileRolloverKB\0" as *const u8 as *const libc::c_char,
-        ptr::null(),
-    ];
-    let val = unsafe { yajl_tree_get(node, path.as_mut_ptr(), yajl_t_number) };
+    for (mut path, expected_value) in [(
+        [
+            b"Logging\0" as *const u8 as *const c_char,
+            b"fileRolloverKB\0" as *const u8 as *const c_char,
+            ptr::null(),
+        ],
+        2048,
+    )] {
+        let val = unsafe { yajl_tree_get(node, path.as_mut_ptr(), yajl_t_number) };
+        assert!(!val.is_null());
+        let actual = unsafe { (*val).u.number.i };
+        assert_eq!(actual, expected_value);
+    }
+}
+#[rstest]
+#[case(0)]
+#[case(128)]
+fn tree_parse_and_get_string(#[case] buffer_size: usize, sample_config_data: Vec<u8>) {
+    let mut error_buffer = vec![0; buffer_size];
+    let node = unsafe {
+        yajl_tree_parse(
+            sample_config_data.as_ptr() as *const i8,
+            if buffer_size == 0 {
+                ptr::null_mut()
+            } else {
+                error_buffer.as_mut_ptr()
+            },
+            error_buffer.len(),
+        )
+    };
+    assert!(!node.is_null());
+    let _guard = FreeGuard::new(node, yajl_tree_free);
 
-    assert!(!val.is_null());
-    let actual = unsafe { (*val).u.number.i };
-    let expected = 2048;
-    assert_eq!(actual, expected);
+    for (mut path, expected_value) in [(
+        [
+            b"Logging\0" as *const u8 as *const c_char,
+            b"level\0" as *const u8 as *const c_char,
+            ptr::null(),
+        ],
+        "BP_LOG_LEVEL",
+    )] {
+        let val = unsafe { yajl_tree_get(node, path.as_mut_ptr(), yajl_t_string) };
+        assert!(!val.is_null());
+        let actual = unsafe {
+            CStr::from_ptr((*val).u.string as *const i8)
+                .to_str()
+                .unwrap()
+        };
+        assert_eq!(actual, expected_value);
+    }
 }
 
 #[rstest]
