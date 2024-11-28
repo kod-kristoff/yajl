@@ -96,6 +96,8 @@ extern "C" {
     fn yajl_version() -> libc::c_int;
 }
 
+use std::{ffi::c_void, ptr};
+
 #[repr(C)]
 pub struct yajl_gen_t {
     _private: [u8; 0],
@@ -196,4 +198,25 @@ pub struct Number {
     pub d: libc::c_double,
     pub r: *mut libc::c_char,
     pub flags: libc::c_uint,
+}
+
+pub struct FreeGuard<T> {
+    p: *mut T,
+    free: unsafe extern "C" fn(*mut T),
+}
+impl<T> FreeGuard<T> {
+    pub fn new(p: *mut T, free: unsafe extern "C" fn(*mut T)) -> Self {
+        Self { p, free }
+    }
+}
+
+impl<T> Drop for FreeGuard<T> {
+    fn drop(&mut self) {
+        if !self.p.is_null() {
+            unsafe {
+                (self.free)(self.p);
+            }
+            self.p = ptr::null_mut();
+        }
+    }
 }

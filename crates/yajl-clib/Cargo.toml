@@ -12,6 +12,7 @@ default = []
 nightly = []
 
 [dependencies]
+ffi_helpers = "0.3.0"
 libc = { workspace = true }
 
 yajl = { workspace = true }
