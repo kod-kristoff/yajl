@@ -50,11 +50,11 @@ impl ValueType {
 #[repr(C)]
 pub struct Value {
     pub type_0: ValueType,
-    pub u: C2RustUnnamed,
+    pub u: U,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub union C2RustUnnamed {
+pub union U {
     pub string: *mut c_char,
     pub number: Number,
     pub object: Object,
