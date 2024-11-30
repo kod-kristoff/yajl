@@ -46,6 +46,10 @@ impl ValueType {
     }
 }
 
+/// Represents a JSON value with type information and data stored in a union.
+/// # Safety
+/// The union field contains raw pointers which must remain valid for the lifetime
+/// of the Value. The ValueType must accurately reflect which union field is active.
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct Value {
@@ -154,19 +158,20 @@ impl ValueError {
     }
 }
 impl Value {
+    const NUMBER_INVALID: c_uint = 0x00;
     const NUMBER_INT_VALID: c_uint = 0x01;
     const NUMBER_DOUBLE_VALID: c_uint = 0x02;
 
-    unsafe fn alloc(mut type_0: ValueType) -> *mut Value {
+    unsafe fn alloc(mut type_0: ValueType) -> Result<*mut Value, ValueError> {
         let mut v: *mut Value = ptr::null_mut();
         v = libc::malloc(::core::mem::size_of::<Value>()) as *mut Value;
         if v.is_null() {
-            return 0 as *mut Value;
+            return Err(ValueError::OutOfMemory);
         }
         ptr::write_bytes(v, 0, 1);
 
         (*v).type_0 = type_0;
-        v
+        Ok(v)
     }
     unsafe fn object_free(mut v: *mut Value) {
         let mut i: usize = 0;
@@ -316,47 +321,96 @@ impl Value {
             None
         }
     }
-}
 
+    unsafe fn alloc_array() -> Result<*mut Value, ValueError> {
+        let v = Value::alloc(ValueType::Array)?;
+
+        (*v).u.array.values = ptr::null_mut();
+        (*v).u.array.len = 0;
+
+        Ok(v)
+    }
+    unsafe fn alloc_bool(value: bool) -> Result<*mut Value, ValueError> {
+        let v = Value::alloc(if value {
+            ValueType::True
+        } else {
+            ValueType::False
+        })?;
+        Ok(v)
+    }
+    unsafe fn alloc_null() -> Result<*mut Value, ValueError> {
+        let v = Value::alloc(ValueType::Null)?;
+        Ok(v)
+    }
+    unsafe fn alloc_number(string: *const c_char, len: usize) -> Result<*mut Value, ValueError> {
+        let v = Value::alloc(ValueType::Number)?;
+        (*v).u.number.r = libc::malloc(len.wrapping_add(1)).cast::<c_char>();
+        if ((*v).u.number.r).is_null() {
+            libc::free(v.cast());
+            return Err(ValueError::OutOfMemory);
+        }
+        libc::memcpy((*v).u.number.r.cast(), string.cast(), len);
+        *((*v).u.number.r).add(len) = 0;
+        (*v).u.number.flags = Self::NUMBER_INVALID;
+        (*v).u.number.i = match parse_integer((*v).u.number.r.cast(), libc::strlen((*v).u.number.r))
+        {
+            Ok(integer) => {
+                (*v).u.number.flags |= Self::NUMBER_INT_VALID;
+                integer
+            }
+            Err(ParseIntegerError::Underflow) => i64::MIN,
+            _ => i64::MAX,
+        };
+        if let Some(s) = CStr::from_ptr((*v).u.number.r).to_str().ok() {
+            if let Some((d, d_len)) = strtod::strtod(s) {
+                (*v).u.number.d = d;
+                if d_len == len {
+                    (*v).u.number.flags |= Self::NUMBER_DOUBLE_VALID;
+                }
+            } else {
+                (*v).u.number.d = 0f64;
+            };
+        } else {
+            (*v).u.number.d = 0f64;
+        };
+        Ok(v)
+    }
+    unsafe fn alloc_object() -> Result<*mut Value, ValueError> {
+        let v = Value::alloc(ValueType::Object)?;
+
+        (*v).u.object.keys = ptr::null_mut();
+        (*v).u.object.values = ptr::null_mut();
+        (*v).u.object.len = 0;
+
+        Ok(v)
+    }
+    unsafe fn alloc_string(string: *const c_char, len: usize) -> Result<*mut Value, ValueError> {
+        let v = Value::alloc(ValueType::String)?;
+
+        (*v).u.string = libc::malloc(len + 1).cast::<c_char>();
+        if (*v).u.string.is_null() {
+            libc::free(v.cast());
+            return Err(ValueError::OutOfMemory);
+        }
+        libc::memcpy((*v).u.string.cast(), string.cast(), len);
+        *((*v).u.string).add(len) = 0;
+
+        Ok(v)
+    }
+}
 unsafe extern "C" fn handle_string(
     mut ctx: *mut c_void,
     mut string: *const c_uchar,
     mut string_length: usize,
 ) -> c_int {
-    let mut v: *mut Value = ptr::null_mut::<Value>();
-    v = Value::alloc(ValueType::String);
-    if v.is_null() {
-        if !((*(ctx as *mut Context)).errbuf).is_null() {
-            libc::snprintf(
-                (*(ctx as *mut Context)).errbuf,
-                (*(ctx as *mut Context)).errbuf_size,
-                b"Out of memory\0" as *const u8 as *const c_char,
-            );
-        }
-        return 0 as c_int;
-    }
-    (*v).u.string = libc::malloc(string_length.wrapping_add(1)) as *mut c_char;
-    if ((*v).u.string).is_null() {
-        libc::free(v as *mut c_void);
-        if !((*(ctx as *mut Context)).errbuf).is_null() {
-            libc::snprintf(
-                (*(ctx as *mut Context)).errbuf,
-                (*(ctx as *mut Context)).errbuf_size,
-                b"Out of memory\0" as *const u8 as *const c_char,
-            );
-        }
-        return 0 as c_int;
-    }
-    libc::memcpy(
-        (*v).u.string as *mut c_void,
-        string as *const c_void,
-        string_length,
-    );
-    *((*v).u.string).add(string_length) = 0 as c_int as c_char;
-
-    match Context::add_value(ctx as *mut Context, v) {
+    let ctx = ctx.cast::<Context>();
+    match Value::alloc_string(string.cast(), string_length).and_then(|v| Context::add_value(ctx, v))
+    {
         Ok(_) => 1,
-        Err(_) => 0,
+        Err(err) => {
+            Context::record_error(ctx, err.as_bytes_w_null());
+            0
+        }
     }
 }
 unsafe extern "C" fn handle_number(
@@ -364,169 +418,87 @@ unsafe extern "C" fn handle_number(
     mut string: *const c_char,
     mut string_length: usize,
 ) -> c_int {
-    let mut v: *mut Value = ptr::null_mut::<Value>();
-    let mut endptr: *mut c_char = ptr::null_mut::<c_char>();
-    v = Value::alloc(ValueType::Number);
-    if v.is_null() {
-        if !((*(ctx as *mut Context)).errbuf).is_null() {
-            libc::snprintf(
-                (*(ctx as *mut Context)).errbuf,
-                (*(ctx as *mut Context)).errbuf_size,
-                b"Out of memory\0" as *const u8 as *const c_char,
-            );
-        }
-        return 0 as c_int;
-    }
-    (*v).u.number.r = libc::malloc(string_length.wrapping_add(1)) as *mut c_char;
-    if ((*v).u.number.r).is_null() {
-        libc::free(v as *mut c_void);
-        if !((*(ctx as *mut Context)).errbuf).is_null() {
-            libc::snprintf(
-                (*(ctx as *mut Context)).errbuf,
-                (*(ctx as *mut Context)).errbuf_size,
-                b"Out of memory\0" as *const u8 as *const c_char,
-            );
-        }
-        return 0 as c_int;
-    }
-    libc::memcpy(
-        (*v).u.number.r as *mut c_void,
-        string as *const c_void,
-        string_length,
-    );
-    *((*v).u.number.r).add(string_length) = 0 as c_int as c_char;
-    (*v).u.number.flags = 0 as c_int as c_uint;
-    (*v).u.number.i =
-        match parse_integer((*v).u.number.r as *const u8, libc::strlen((*v).u.number.r)) {
-            Ok(integer) => {
-                (*v).u.number.flags |= 0x1;
-                integer
-            }
-            Err(ParseIntegerError::Underflow) => i64::MIN,
-            _ => i64::MAX,
-        };
-    if let Some(s) = CStr::from_ptr((*v).u.number.r).to_str().ok() {
-        if let Some((d, d_len)) = strtod::strtod(s) {
-            (*v).u.number.d = d;
-            if d_len == string_length {
-                (*v).u.number.flags |= 0x2;
-            }
-        } else {
-            (*v).u.number.d = 0f64;
-        };
-    } else {
-        (*v).u.number.d = 0f64;
-    };
-
-    match Context::add_value(ctx as *mut Context, v) {
+    let ctx = ctx.cast::<Context>();
+    match Value::alloc_number(string.cast(), string_length).and_then(|v| Context::add_value(ctx, v))
+    {
         Ok(_) => 1,
-        Err(_) => 0,
+        Err(err) => {
+            Context::record_error(ctx, err.as_bytes_w_null());
+            0
+        }
     }
 }
 unsafe extern "C" fn handle_start_map(mut ctx: *mut c_void) -> c_int {
-    let mut v: *mut Value = ptr::null_mut::<Value>();
-    v = Value::alloc(ValueType::Object);
-    if v.is_null() {
-        if !((*(ctx as *mut Context)).errbuf).is_null() {
-            libc::snprintf(
-                (*(ctx as *mut Context)).errbuf,
-                (*(ctx as *mut Context)).errbuf_size,
-                b"Out of memory\0" as *const u8 as *const c_char,
-            );
-        }
-        return 0 as c_int;
-    }
-    (*v).u.object.keys = ptr::null_mut::<*const c_char>();
-    (*v).u.object.values = ptr::null_mut::<*mut Value>();
-    (*v).u.object.len = 0 as c_int as usize;
-    match Context::push(ctx as *mut Context, v) {
+    let ctx = ctx.cast::<Context>();
+    match Value::alloc_object().and_then(|v| Context::push(ctx, v)) {
         Ok(_) => 1,
-        Err(_) => 0,
+        Err(err) => {
+            Context::record_error(ctx, err.as_bytes_w_null());
+            0
+        }
     }
 }
 
 unsafe extern "C" fn handle_end_map(mut ctx: *mut c_void) -> i32 {
-    let Ok(v) = Context::pop(ctx as *mut Context) else {
+    let ctx = ctx.cast::<Context>();
+    let Ok(v) = Context::pop(ctx) else {
         return 0;
     };
     if v.is_null() {
         return 0;
     }
-    match Context::add_value(ctx as *mut Context, v) {
+    match Context::add_value(ctx, v) {
         Ok(_) => 1,
-        Err(_) => 0,
+        Err(err) => {
+            Context::record_error(ctx, err.as_bytes_w_null());
+            0
+        }
     }
 }
 unsafe extern "C" fn handle_start_array(mut ctx: *mut c_void) -> c_int {
-    let mut v: *mut Value = ptr::null_mut::<Value>();
-    v = Value::alloc(ValueType::Array);
-    if v.is_null() {
-        if !((*(ctx as *mut Context)).errbuf).is_null() {
-            libc::snprintf(
-                (*(ctx as *mut Context)).errbuf,
-                (*(ctx as *mut Context)).errbuf_size,
-                b"Out of memory\0" as *const u8 as *const c_char,
-            );
-        }
-        return 0 as c_int;
-    }
-    (*v).u.array.values = ptr::null_mut::<*mut Value>();
-    (*v).u.array.len = 0 as libc::c_int as usize;
-    match Context::push(ctx as *mut Context, v) {
+    let ctx = ctx.cast::<Context>();
+    match Value::alloc_array().and_then(|v| Context::push(ctx, v)) {
         Ok(_) => 1,
-        Err(_) => 0,
+        Err(err) => {
+            Context::record_error(ctx, err.as_bytes_w_null());
+            0
+        }
     }
 }
 unsafe extern "C" fn handle_end_array(mut ctx: *mut c_void) -> i32 {
-    let Ok(v) = Context::pop(ctx as *mut Context) else {
+    let ctx = ctx.cast::<Context>();
+    let Ok(v) = Context::pop(ctx) else {
         return 0;
     };
     if v.is_null() {
         return 0;
     }
-    match Context::add_value(ctx as *mut Context, v) {
+    match Context::add_value(ctx, v) {
         Ok(_) => 1,
-        Err(_) => 0,
+        Err(err) => {
+            Context::record_error(ctx, err.as_bytes_w_null());
+            0
+        }
     }
 }
 unsafe extern "C" fn handle_boolean(mut ctx: *mut c_void, mut boolean_value: c_int) -> c_int {
-    let mut v: *mut Value = ptr::null_mut::<Value>();
-    v = Value::alloc(if boolean_value != 0 {
-        ValueType::True
-    } else {
-        ValueType::False
-    });
-    if v.is_null() {
-        if !((*(ctx as *mut Context)).errbuf).is_null() {
-            libc::snprintf(
-                (*(ctx as *mut Context)).errbuf,
-                (*(ctx as *mut Context)).errbuf_size,
-                b"Out of memory\0" as *const u8 as *const c_char,
-            );
-        }
-        return 0 as c_int;
-    }
-    match Context::add_value(ctx as *mut Context, v) {
+    let ctx = ctx.cast::<Context>();
+    match Value::alloc_bool(boolean_value != 0).and_then(|v| Context::add_value(ctx, v)) {
         Ok(_) => 1,
-        Err(_) => 0,
+        Err(err) => {
+            Context::record_error(ctx, err.as_bytes_w_null());
+            0
+        }
     }
 }
 unsafe extern "C" fn handle_null(mut ctx: *mut c_void) -> c_int {
-    let mut v: *mut Value = ptr::null_mut::<Value>();
-    v = Value::alloc(ValueType::Null);
-    if v.is_null() {
-        if !((*(ctx as *mut Context)).errbuf).is_null() {
-            libc::snprintf(
-                (*(ctx as *mut Context)).errbuf,
-                (*(ctx as *mut Context)).errbuf_size,
-                b"Out of memory\0" as *const u8 as *const c_char,
-            );
-        }
-        return 0 as c_int;
-    }
-    match Context::add_value(ctx as *mut Context, v) {
+    let ctx = ctx.cast::<Context>();
+    match Value::alloc_null().and_then(|v| Context::add_value(ctx, v)) {
         Ok(_) => 1,
-        Err(_) => 0,
+        Err(err) => {
+            Context::record_error(ctx, err.as_bytes_w_null());
+            0
+        }
     }
 }
 
@@ -535,6 +507,9 @@ pub unsafe fn yajl_tree_parse(
     mut error_buffer: *mut c_char,
     mut error_buffer_size: usize,
 ) -> Option<*mut Value> {
+    if input.is_null() {
+        return None;
+    }
     static mut callbacks: yajl_callbacks = unsafe {
         {
             yajl_callbacks {
