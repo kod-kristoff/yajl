@@ -13,6 +13,8 @@ use crate::{
 };
 
 mod context;
+#[cfg(test)]
+mod tests;
 
 /// possible data types that a Value can hold
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -583,6 +585,9 @@ pub unsafe fn yajl_tree_get(
     mut path: *mut *const c_char,
     mut type_0: ValueType,
 ) -> Option<*mut Value> {
+    if n.is_null() {
+        return None;
+    }
     if path.is_null() {
         return None;
     }
