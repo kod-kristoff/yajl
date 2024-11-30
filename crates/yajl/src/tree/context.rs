@@ -1,5 +1,5 @@
-use core::ffi::{c_char, c_void};
-use core::ptr;
+use core::ffi::{c_char, c_void, CStr};
+use core::{fmt, ptr, slice};
 
 use super::{Value, ValueType};
 
@@ -10,6 +10,35 @@ pub struct Context {
     pub root: *mut Value,
     pub errbuf: *mut c_char,
     pub errbuf_size: usize,
+}
+
+impl fmt::Debug for Context {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut d = f.debug_struct("Context");
+        if self.stack.is_null() {
+            d.field("stack", &"NULL");
+        } else {
+            unsafe {
+                d.field("stack", &*self.stack);
+            }
+        }
+        if self.root.is_null() {
+            d.field("root", &"NULL");
+        } else {
+            unsafe {
+                d.field("root", &*self.root);
+            }
+        }
+        if self.errbuf.is_null() {
+            d.field("errbuf", &"NULL");
+        } else {
+            let bytes =
+                unsafe { slice::from_raw_parts(self.errbuf as *const u8, self.errbuf_size) };
+            d.field("errbuf", &String::from_utf8_lossy(bytes));
+        }
+        d.field("errbuf_size", &self.errbuf_size);
+        d.finish()
+    }
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -26,6 +55,32 @@ pub enum ContextError {
     ObjectKeyIsNotAString,
     CantAddValueToNonCompsiteType = 22,
     BottomOfStackReachedPrematurely,
+impl fmt::Debug for StackElem {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut d = f.debug_struct("StackElem");
+        if self.key.is_null() {
+            d.field("key", &"NULL");
+        } else {
+            unsafe {
+                d.field("key", &CStr::from_ptr(self.key));
+            }
+        }
+        if self.value.is_null() {
+            d.field("value", &"NULL");
+        } else {
+            unsafe {
+                d.field("value", &*self.value);
+            }
+        }
+        if self.next.is_null() {
+            d.field("next", &"NULL");
+        } else {
+            unsafe {
+                d.field("next", &*self.next);
+            }
+        }
+        d.finish()
+    }
 }
 
 impl Context {
