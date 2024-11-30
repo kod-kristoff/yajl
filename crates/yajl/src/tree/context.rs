@@ -1,7 +1,7 @@
 use core::ffi::{c_char, c_void, CStr};
 use core::{fmt, ptr, slice};
 
-use super::{Value, ValueType};
+use super::{Value, ValueError, ValueType};
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -48,13 +48,6 @@ pub struct StackElem {
     pub next: *mut StackElem,
 }
 
-#[derive(Copy, Clone, Debug)]
-#[repr(i32)]
-pub enum ContextError {
-    OutOfMemory = 12,
-    ObjectKeyIsNotAString,
-    CantAddValueToNonCompsiteType = 22,
-    BottomOfStackReachedPrematurely,
 impl fmt::Debug for StackElem {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut d = f.debug_struct("StackElem");
@@ -97,7 +90,7 @@ impl Context {
             errbuf_size: error_buffer_size,
         }
     }
-    pub unsafe fn push(mut ctx: *mut Context, mut v: *mut Value) -> Result<(), ContextError> {
+    pub unsafe fn push(mut ctx: *mut Context, mut v: *mut Value) -> Result<(), ValueError> {
         let stack = libc::malloc(::core::mem::size_of::<StackElem>()) as *mut StackElem;
         if stack.is_null() {
             if !((*ctx).errbuf).is_null() {
@@ -107,7 +100,7 @@ impl Context {
                     b"Out of memory\0" as *const u8 as *const c_char,
                 );
             }
-            return Err(ContextError::OutOfMemory);
+            return Err(ValueError::OutOfMemory);
         }
         ptr::write_bytes(stack, 0, 1);
 
@@ -116,7 +109,7 @@ impl Context {
         (*ctx).stack = stack;
         Ok(())
     }
-    pub unsafe fn pop(mut ctx: *mut Context) -> Result<*mut Value, ContextError> {
+    pub unsafe fn pop(mut ctx: *mut Context) -> Result<*mut Value, ValueError> {
         if ((*ctx).stack).is_null() {
             if !((*ctx).errbuf).is_null() {
                 libc::snprintf(
@@ -126,7 +119,7 @@ impl Context {
                         as *const c_char,
                 );
             }
-            return Err(ContextError::BottomOfStackReachedPrematurely);
+            return Err(ValueError::BottomOfStackReachedPrematurely);
         }
         let stack = (*ctx).stack;
         (*ctx).stack = (*stack).next;
@@ -135,12 +128,23 @@ impl Context {
         Ok(v)
     }
 
+    pub unsafe fn record_error(mut ctx: *mut Context, msg_with_nul: &[u8]) {
+        debug_assert!(!ctx.is_null());
+        if !(*ctx).errbuf.is_null() {
+            libc::snprintf(
+                (*ctx).errbuf,
+                (*ctx).errbuf_size,
+                msg_with_nul.as_ptr().cast(),
+            );
+        }
+    }
+
     unsafe fn object_add_keyval(
         mut ctx: *mut Context,
         mut obj: *mut Value,
         mut key: *mut c_char,
         mut value: *mut Value,
-    ) -> Result<(), ContextError> {
+    ) -> Result<(), ValueError> {
         let tmpk = libc::realloc(
             (*obj).u.object.keys as *mut c_void,
             (::core::mem::size_of::<*const c_char>())
@@ -154,7 +158,7 @@ impl Context {
                     b"Out of memory\0" as *const u8 as *const c_char,
                 );
             }
-            return Err(ContextError::OutOfMemory);
+            return Err(ValueError::OutOfMemory);
         }
         (*obj).u.object.keys = tmpk;
         let tmpv = libc::realloc(
@@ -170,7 +174,7 @@ impl Context {
                     b"Out of memory\0" as *const u8 as *const c_char,
                 );
             }
-            return Err(ContextError::OutOfMemory);
+            return Err(ValueError::OutOfMemory);
         }
         (*obj).u.object.values = tmpv;
         let fresh3 = &mut (*((*obj).u.object.keys).add((*obj).u.object.len));
@@ -184,7 +188,7 @@ impl Context {
         mut ctx: *mut Context,
         mut array: *mut Value,
         mut value: *mut Value,
-    ) -> Result<(), ContextError> {
+    ) -> Result<(), ValueError> {
         let tmp = libc::realloc(
             (*array).u.array.values as *mut c_void,
             (::core::mem::size_of::<*mut Value>())
@@ -198,7 +202,7 @@ impl Context {
                     b"Out of memory\0" as *const u8 as *const c_char,
                 );
             }
-            return Err(ContextError::OutOfMemory);
+            return Err(ValueError::OutOfMemory);
         }
         (*array).u.array.values = tmp;
         let fresh5 = &mut (*((*array).u.array.values).add((*array).u.array.len));
@@ -206,7 +210,7 @@ impl Context {
         (*array).u.array.len = ((*array).u.array.len).wrapping_add(1);
         Ok(())
     }
-    pub unsafe fn add_value(mut ctx: *mut Context, mut v: *mut Value) -> Result<(), ContextError> {
+    pub unsafe fn add_value(mut ctx: *mut Context, mut v: *mut Value) -> Result<(), ValueError> {
         if ((*ctx).stack).is_null() {
             (*ctx).root = v;
             Ok(())
@@ -222,7 +226,7 @@ impl Context {
                             (*v).type_0 as libc::c_uint,
                         );
                     }
-                    return Err(ContextError::ObjectKeyIsNotAString);
+                    return Err(ValueError::ObjectKeyIsNotAString);
                 }
                 (*(*ctx).stack).key = (*v).u.string;
                 (*v).u.string = ptr::null_mut::<c_char>();
@@ -249,7 +253,7 @@ impl Context {
                 (*(*(*ctx).stack).value).type_0 as libc::c_uint,
             );
             }
-            return Err(ContextError::CantAddValueToNonCompsiteType);
+            return Err(ValueError::CantAddValueToNonCompsiteType);
         }
     }
 }

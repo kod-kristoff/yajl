@@ -137,6 +137,22 @@ impl fmt::Debug for Value {
     }
 }
 
+#[derive(Copy, Clone, Debug)]
+#[repr(i32)]
+pub enum ValueError {
+    OutOfMemory = 12,
+    ObjectKeyIsNotAString,
+    CantAddValueToNonCompsiteType = 22,
+    BottomOfStackReachedPrematurely,
+}
+impl ValueError {
+    pub fn as_bytes_w_null(&self) -> &[u8] {
+        match self {
+            Self::OutOfMemory => &b"Out of memory\0"[..],
+            _ => todo!(),
+        }
+    }
+}
 impl Value {
     const NUMBER_INT_VALID: c_uint = 0x01;
     const NUMBER_DOUBLE_VALID: c_uint = 0x02;
