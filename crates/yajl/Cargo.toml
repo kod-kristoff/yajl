@@ -12,7 +12,7 @@ nightly = []
 
 [dependencies]
 libc = { workspace = true }
-strtod = { git = "https://github.com/kod-kristoff/strtod", branch = "change-api-and-add-ffi" }
+strtod = { git = "https://github.com/kod-kristoff/strtod" }
 
 [lib]
 doctest = false
