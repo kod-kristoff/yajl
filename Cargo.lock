@@ -416,7 +416,7 @@ dependencies = [
 [[package]]
 name = "strtod"
 version = "0.1.0"
-source = "git+https://github.com/kod-kristoff/strtod?branch=change-api-and-add-ffi#73f8bf639278b0871ee109f2763b86b785a3a11a"
+source = "git+https://github.com/kod-kristoff/strtod#83cb828882a9e50d06e207fced4e6aa6b2f3a8f7"
 
 [[package]]
 name = "syn"
